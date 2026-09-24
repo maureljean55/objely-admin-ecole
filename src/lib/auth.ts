@@ -179,18 +179,6 @@ export async function changePassword(current: string, next: string): Promise<Cha
   }
 }
 
-/** Never reveals whether an e-mail has an account. */
-export async function sendPasswordReset(email: string): Promise<{ ok: boolean }> {
-  const supabase = getSupabase();
-  if (!supabase) return { ok: false };
-  try {
-    await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: `${window.location.origin}/login` });
-    return { ok: true };
-  } catch {
-    return { ok: false };
-  }
-}
-
 /** Only same-site paths: a "next" parameter must never send someone to another domain. */
 export function safeNext(next: string | null): string {
   return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : "/";

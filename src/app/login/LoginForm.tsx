@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { authIsReal, checkSession, safeNext, sendPasswordReset, signIn, type SignInResult } from "@/lib/auth";
+import { checkSession, safeNext, signIn, type SignInResult } from "@/lib/auth";
 
 const MESSAGES: Record<Exclude<SignInResult, { ok: true }>["reason"], string> = {
   invalid: "E-mail ou mot de passe incorrect.",
@@ -20,14 +20,12 @@ const CONTROL =
 export function LoginForm() {
   const router = useRouter();
   const next = safeNext(useSearchParams().get("next"));
-  const real = authIsReal();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -46,7 +44,6 @@ export function LoginForm() {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setFormError(null);
-    setNotice(null);
 
     const nextErrors: typeof errors = {};
     if (!email.trim()) nextErrors.email = "Saisissez votre e-mail.";
@@ -67,22 +64,6 @@ export function LoginForm() {
     setFormError(MESSAGES[result.reason]);
     setPassword("");
     passwordRef.current?.focus();
-  }
-
-  async function forgot() {
-    setFormError(null);
-    setNotice(null);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setErrors({ email: "Saisissez d'abord votre e-mail, puis touchez « Mot de passe oublié »." });
-      return emailRef.current?.focus();
-    }
-    setErrors({});
-    if (!real) {
-      setFormError(MESSAGES.not_configured);
-      return;
-    }
-    await sendPasswordReset(email);
-    setNotice("Si un compte existe pour cet e-mail, un lien pour choisir un nouveau mot de passe vient d'être envoyé.");
   }
 
   return (
@@ -200,10 +181,7 @@ export function LoginForm() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between">
-                <label htmlFor="password" className="text-small font-semibold text-ink">Mot de passe</label>
-                <button type="button" onClick={forgot} className="text-small font-semibold text-blue hover:underline">Mot de passe oublié ?</button>
-              </div>
+              <label htmlFor="password" className="text-small font-semibold text-ink">Mot de passe</label>
               <div className="relative">
                 <input
                   id="password"
@@ -233,12 +211,6 @@ export function LoginForm() {
               <p role="alert" className="flex items-start gap-2 rounded-field bg-danger-tint px-3 py-2.5 text-small font-medium text-danger">
                 <Icon name="error" size={18} fill className="mt-px" />
                 {formError}
-              </p>
-            )}
-            {notice && (
-              <p role="status" className="flex items-start gap-2 rounded-field bg-blue-tint px-3 py-2.5 text-small font-medium text-blue">
-                <Icon name="info" size={18} fill className="mt-px" />
-                {notice}
               </p>
             )}
 
