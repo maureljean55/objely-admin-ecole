@@ -86,17 +86,61 @@ export function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-5 py-10">
-      <div className="w-full max-w-[400px] animate-rise">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <Image src="/logo/objely-mark.png" alt="" width={84} height={74} priority className="h-[74px] w-[84px]" />
-          <p className="mt-3 font-display text-[34px] font-extrabold leading-none tracking-tight text-ink">Objely</p>
-          <p className="tag mt-2">École · Administration</p>
+    <main className="grid min-h-screen lg:grid-cols-[minmax(0,1.2fr)_minmax(460px,0.8fr)]">
+      {/* Visual: the Objely splash. Decorative only. */}
+      <aside
+        aria-hidden="true"
+        className="relative hidden overflow-hidden lg:block"
+        style={{ background: "linear-gradient(135deg, #0058bc 0%, #0070eb 35%, #7c6ff0 70%, #a19afd 100%)" }}
+      >
+        <div className="absolute left-14 top-14 z-10 max-w-[520px] text-white">
+          <p className="font-display text-[26px] font-semibold leading-tight text-white/90">Objets perdus, objets retrouvés</p>
+          <p className="mt-2 font-display text-[54px] font-extrabold leading-[1.02] tracking-tight">Votre vie scolaire, plus sereine.</p>
         </div>
 
-        <div className="rounded-card border border-line bg-white p-8 shadow-panel">
+        <div className="absolute inset-0 flex items-center justify-center pt-24">
+          <div className="relative flex items-center justify-center" style={{ width: 460, height: 460 }}>
+            <span className="radar-ping absolute size-[160px] rounded-full border border-white/40" />
+            <span className="radar-ping absolute size-[160px] rounded-full border border-white/40" style={{ animationDelay: "1.5s" }} />
+            <div className="orbit-ring absolute inset-0">
+              {[
+                { src: "wallet", angle: 0 },
+                { src: "phone", angle: 90 },
+                { src: "keys", angle: 180 },
+                { src: "earbuds", angle: 270 },
+              ].map((o) => (
+                <div
+                  key={o.src}
+                  className="absolute left-1/2 top-1/2"
+                  style={{ width: 92, height: 92, margin: "-46px 0 0 -46px", transform: `rotate(${o.angle}deg) translate(200px) rotate(-${o.angle}deg)` }}
+                >
+                  <div className="orbit-item flex size-full items-center justify-center drop-shadow-[0_8px_16px_rgba(0,0,0,0.4)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/illustrations/splash/${o.src}.png`} alt="" draggable={false} className="max-h-full max-w-full object-contain" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/illustrations/splash/magnifier.png" alt="" draggable={false} className="magnifier-pulse relative w-[210px]" />
+          </div>
+        </div>
+
+        <p className="absolute bottom-10 left-14 z-10 text-body text-white/85">Perdu. Trouvé. Retrouvé.</p>
+      </aside>
+
+      <section className="flex flex-col justify-center bg-white px-8 py-12 sm:px-16">
+        <div className="mx-auto w-full max-w-[400px] animate-rise">
+          <div className="mb-12 flex items-center gap-3">
+            <Image src="/logo/objely-mark.png" alt="" width={56} height={49} priority className="h-[49px] w-[56px]" />
+            <div className="leading-none">
+              <p className="font-display text-[30px] font-extrabold tracking-tight text-ink">Objely</p>
+              <p className="tag mt-1.5">École · Administration</p>
+            </div>
+          </div>
+
           <h1 className="text-title text-ink">Connexion</h1>
-          <p className="mt-1 text-body text-slate">Réservé au personnel de l&apos;établissement.</p>
+          <p className="mt-2 text-body-lg text-slate" style={{ fontSize: 17 }}>Connectez-vous avec le compte de votre établissement.</p>
 
           <form onSubmit={submit} noValidate className="mt-6 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -172,10 +216,12 @@ export function LoginForm() {
               {busy ? "Connexion…" : "Se connecter"}
             </button>
           </form>
-        </div>
 
-        <p className="mt-5 text-center text-small text-mute">Vous n&apos;avez pas encore d&apos;accès ? Il vous a été transmis par Objely à l&apos;inscription de votre établissement.</p>
-      </div>
+          <p className="mt-10 border-t border-line pt-5 text-small text-slate">
+            Pas encore d&apos;accès ? Il vous a été transmis par Objely à l&apos;inscription de votre établissement. Vous l&apos;avez perdu ? Contactez Objely.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }
