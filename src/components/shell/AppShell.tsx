@@ -166,13 +166,35 @@ function Sidebar() {
         ))}
       </nav>
 
+      <SignOutLink />
       <UserMenu />
     </aside>
   );
 }
 
-function UserMenu() {
+function SignOutLink() {
   const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="px-3 pb-2">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          await signOut();
+          router.push("/login");
+        }}
+        className="flex h-10 w-full items-center gap-3 rounded-field px-3 text-body font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-60"
+      >
+        <Icon name="logout" size={20} />
+        {busy ? "Déconnexion…" : "Déconnexion"}
+      </button>
+    </div>
+  );
+}
+
+function UserMenu() {
   const state = useData();
   const user = useCurrentUser();
   const [open, setOpen] = useState(false);
@@ -200,17 +222,6 @@ function UserMenu() {
           <button type="button" onClick={() => { resetDemo(); setOpen(false); }} className="flex w-full items-center gap-2 rounded-field px-2 py-1.5 text-left text-small text-slate hover:bg-canvas">
             <Icon name="restart_alt" size={16} />
             Réinitialiser les données de démo
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              await signOut();
-              router.push("/login");
-            }}
-            className="flex w-full items-center gap-2 rounded-field px-2 py-1.5 text-left text-small text-danger hover:bg-danger-tint"
-          >
-            <Icon name="logout" size={16} />
-            Se déconnecter
           </button>
         </div>
       )}
