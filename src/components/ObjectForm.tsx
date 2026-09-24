@@ -9,7 +9,9 @@ import { readPhoto } from "@/lib/photo";
 import { CATEGORIES, type CategoryId } from "@/lib/types";
 import type { ObjectInput } from "@/lib/store";
 
-const PLACES = ["CDI", "Cantine", "Gymnase", "Cour", "Salle de cours", "Couloir / Hall", "Salle informatique"];
+// Same wording as the places offered on the borne (Objely-ecole src/lib/declaration.tsx): matching compares places
+// word for word, so an object found "Cantine / Réfectoire" matches a declaration made there.
+const PLACES = ["CDI (1er étage)", "Cantine / Réfectoire", "Gymnase & Vestiaires", "Cour de récréation", "Salle de cours", "Couloir / Hall", "Salle informatique"];
 const STORAGE = ["Casier 1", "Casier 2", "Casier 3", "Coffre", "Étagère sacs", "Étagère vêtements"];
 
 const today = () => new Date().toISOString().slice(0, 10);
