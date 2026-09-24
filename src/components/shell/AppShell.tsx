@@ -3,13 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { ToastProvider } from "@/components/ui/Toast";
 import { can, type Permission } from "@/lib/permissions";
 import { findMatches } from "@/lib/matching";
 import { checkSession, signOut, type Session } from "@/lib/auth";
-import { loadStore, resetDemo, switchUser, useStoreState } from "@/lib/store";
+import { resetStore, startStore, useStoreError, useStoreState } from "@/lib/store";
 import { initials } from "@/lib/format";
 import { ROLES, type StaffMember, type State } from "@/lib/types";
 
@@ -28,13 +28,11 @@ const SessionContext = createContext<{ session: Session | null; refresh: () => P
 export const useSession = () => useContext(SessionContext);
 
 export function useCurrentUser(): StaffMember {
-  const { staff, currentUserId } = useData();
   const { session } = useSession();
-  // A real account is exactly who it says it is; the demo "Voir comme" only exists in demo mode.
-  if (session?.mode === "supabase") {
-    return { id: "session", name: session.name ?? session.email, email: session.email, role: session.role ?? "lecture", active: true, createdAt: "" };
-  }
-  return staff.find((m) => m.id === currentUserId) ?? staff[0];
+  const { staff } = useData();
+  // The person signed in, as recorded in the establishment's staff list.
+  const me = staff.find((m) => m.email.toLowerCase() === session?.email);
+  return me ?? { id: "session", name: session?.name ?? session?.email ?? "", email: session?.email ?? "", role: session?.role ?? "lecture", active: true, createdAt: "" };
 }
 
 export function useCan(permission: Permission) {
@@ -45,41 +43,46 @@ type NavItem = { href: string; label: string; icon: string; count?: number; exac
 
 export function AppShell({ children }: { children: ReactNode }) {
   const state = useStoreState();
+  const storeError = useStoreError();
   const router = useRouter();
   const pathname = usePathname();
   const [session, setSession] = useState<Session | null>(null);
-  useEffect(() => loadStore(), []);
 
   // Nothing is shown before someone has signed in: no session sends you to /login, and back afterwards.
   useEffect(() => {
     let cancelled = false;
     checkSession().then((s) => {
       if (cancelled) return;
-      if (!s) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-      else setSession(s);
+      if (!s) {
+        resetStore();
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      } else setSession(s);
     });
     return () => {
       cancelled = true;
     };
   }, [router, pathname]);
 
+  const organizationId = session?.organizationId;
+  useEffect(() => (organizationId ? startStore(organizationId) : undefined), [organizationId]);
+
   const refresh = async () => setSession(await checkSession());
 
-  // In demo mode the signed-in e-mail decides which demo staff member you are.
-  // Applied once per sign-in, so the "Voir comme" demo menu can still switch afterwards.
-  const appliedFor = useRef<string | null>(null);
-  const signedInAs = state && session ? state.staff.find((m) => m.email.toLowerCase() === session.email) : undefined;
-  useEffect(() => {
-    if (!signedInAs || !session || appliedFor.current === session.email) return;
-    appliedFor.current = session.email;
-    switchUser(signedInAs.id);
-  }, [signedInAs, session]);
-
-  if (!state || !session) {
+  if (!session || !state) {
     return (
       <div className="flex h-screen">
         <div className="w-[264px] shrink-0 bg-ink" />
-        <div className="flex-1 p-10 text-slate">Chargement…</div>
+        <div className="flex flex-1 items-center justify-center p-10">
+          {storeError ? (
+            <div role="alert" className="max-w-md rounded-card border border-danger/30 bg-danger-tint p-6 text-center">
+              <p className="text-h2 text-danger">Impossible de charger vos données</p>
+              <p className="mt-2 text-body text-ink">{storeError}</p>
+              <button type="button" onClick={() => window.location.reload()} className="mt-4 h-10 rounded-field bg-ink px-5 font-semibold text-white">Réessayer</button>
+            </div>
+          ) : (
+            <p className="text-slate">Chargement de vos données…</p>
+          )}
+        </div>
       </div>
     );
   }
@@ -92,6 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Sidebar />
             <main className="min-w-0 flex-1 overflow-y-auto">
               {session.mustChangePassword && pathname !== "/parametres" && <PasswordBanner />}
+              {storeError && <div role="alert" className="border-b border-danger/30 bg-danger-tint px-10 py-2 text-small font-medium text-danger">{storeError}</div>}
               <div className="mx-auto w-full max-w-[1240px] px-10 py-8">{children}</div>
             </main>
           </div>
@@ -118,7 +122,6 @@ function PasswordBanner() {
 
 function Sidebar() {
   const state = useData();
-  const { session } = useSession();
   const pathname = usePathname();
 
   const counts = useMemo(
@@ -164,7 +167,7 @@ function Sidebar() {
 
       <div className="mx-4 mb-2 rounded-field bg-white/8 px-3 py-2.5">
         <p className="tag !text-white/50">Établissement</p>
-        <p className="truncate text-body font-semibold">{session?.organizationName ?? state.settings.schoolName}</p>
+        <p className="truncate text-body font-semibold">{state.settings.schoolName}</p>
       </div>
 
       <nav aria-label="Navigation principale" className="flex-1 overflow-y-auto px-3 py-2">
@@ -226,52 +229,17 @@ function SignOutLink() {
 }
 
 function UserMenu() {
-  const state = useData();
   const user = useCurrentUser();
-  const { session } = useSession();
-  const real = session?.mode === "supabase";
-  const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative border-t border-white/10 p-3">
-      {open && (
-        <div className="absolute inset-x-3 bottom-[76px] z-20 rounded-card bg-white p-2 text-ink shadow-pop">
-          {!real && <p className="tag px-2 pb-1 pt-1">Voir comme (démo)</p>}
-          {!real && state.staff.filter((m) => m.active).map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => {
-                switchUser(m.id);
-                setOpen(false);
-              }}
-              className={`flex w-full items-center justify-between rounded-field px-2 py-1.5 text-left text-small hover:bg-canvas ${m.id === user.id ? "font-semibold" : ""}`}
-            >
-              <span className="truncate">{m.name}</span>
-              <span className="text-mute">{ROLES[m.role].label}</span>
-            </button>
-          ))}
-          {!real && <div className="my-1 border-t border-line" />}
-          <button type="button" onClick={() => { resetDemo(); setOpen(false); }} className="flex w-full items-center gap-2 rounded-field px-2 py-1.5 text-left text-small text-slate hover:bg-canvas">
-            <Icon name="restart_alt" size={16} />
-            Réinitialiser les données de démo
-          </button>
-        </div>
-      )}
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-3 rounded-field p-2 text-left hover:bg-white/10"
-      >
+    <div className="border-t border-white/10 p-3">
+      <div className="flex items-center gap-3 rounded-field p-2">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white font-display text-small font-extrabold text-ink">{initials(user.name)}</span>
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-body font-semibold">{user.name}</span>
           <span className="block truncate text-small text-white/60">{ROLES[user.role].label}</span>
         </span>
-        <Icon name="unfold_more" size={18} className="text-white/60" />
-      </button>
-      <p className="px-2 pt-2 text-tag text-white/40">{real ? "Données de démonstration : la base de données sera reliée prochainement" : "Mode démonstration · données enregistrées dans ce navigateur"}</p>
+      </div>
     </div>
   );
 }

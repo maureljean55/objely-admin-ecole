@@ -1,26 +1,19 @@
 "use client";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { createSeed } from "./seed";
 import type { StaffRole } from "./types";
 
-// Staff sign-in.
-//  - With the objely-ecole project's URL and publishable key set (NEXT_PUBLIC_SUPABASE_URL /
-//    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) it signs in against Supabase Auth and links the account to its
-//    membership (claim_membership). The establishment's account is created by the Objely platform admin with a
-//    generated password and flagged `must_change_password` until the establishment picks its own.
-//  - Without them it runs in DEMO mode: the accounts of the demo staff list, one shared demo password.
-//    The data is fake and lives in the browser, so this gate protects nothing real. It only shows the flow.
-
-export const DEMO_PASSWORD = "demo-objely";
-export const DEMO_EMAIL = "camille.martin@lycee-jean-moulin.fr";
+// Staff sign-in against the objely-ecole Supabase project (Supabase Auth, e-mail + password).
+// The establishment's account is created by the Objely platform admin with a generated password and flagged
+// `must_change_password` until the establishment picks its own. Staff added later by an administrator work the same way.
 
 export type Session = {
-  mode: "demo" | "supabase";
+  mode: "supabase";
   email: string;
   /** Real accounts only: who is signed in, and for which establishment. */
   name?: string;
   role?: StaffRole;
+  organizationId?: string;
   organizationName?: string;
   /** True while the account still uses the provisional password it was created with. */
   mustChangePassword?: boolean;
@@ -30,7 +23,8 @@ const KEY = "objely-ecole-admin:session";
 
 let client: SupabaseClient | null | undefined;
 
-function getSupabase(): SupabaseClient | null {
+/** The browser client for the objely-ecole project, or null if its URL and publishable key are not set. */
+export function getSupabase(): SupabaseClient | null {
   if (client !== undefined) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -44,7 +38,7 @@ function readStored(): Session | null {
   try {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? (JSON.parse(raw) as Session) : null;
-    return parsed && (parsed.mode === "demo" || parsed.mode === "supabase") && typeof parsed.email === "string" ? parsed : null;
+    return parsed && parsed.mode === "supabase" && typeof parsed.email === "string" ? parsed : null;
   } catch {
     return null;
   }
@@ -63,8 +57,6 @@ function store(session: Session | null) {
 export async function checkSession(): Promise<Session | null> {
   const stored = readStored();
   if (!stored) return null;
-  if (stored.mode === "demo") return authIsReal() ? null : stored;
-
   const supabase = getSupabase();
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
@@ -90,18 +82,13 @@ export async function signOut() {
 
 export type SignInResult =
   | { ok: true; mustChangePassword: boolean }
-  | { ok: false; reason: "invalid" | "no_membership" | "rate_limited" | "network" };
+  | { ok: false; reason: "invalid" | "no_membership" | "rate_limited" | "network" | "not_configured" };
 
 export async function signIn(email: string, password: string): Promise<SignInResult> {
   const address = email.trim().toLowerCase();
   const supabase = getSupabase();
 
-  if (!supabase) {
-    const known = createSeed().staff.some((m) => m.active && m.email.toLowerCase() === address);
-    if (!known || password !== DEMO_PASSWORD) return { ok: false, reason: "invalid" };
-    store({ mode: "demo", email: address });
-    return { ok: true, mustChangePassword: false };
-  }
+  if (!supabase) return { ok: false, reason: "not_configured" };
 
   try {
     const { data: auth, error } = await supabase.auth.signInWithPassword({ email: address, password });
@@ -127,6 +114,7 @@ export async function signIn(email: string, password: string): Promise<SignInRes
       email: address,
       name: member?.full_name ?? address,
       role: claim.role,
+      organizationId: claim.organization_id,
       organizationName: organization?.name,
       mustChangePassword,
     });
@@ -178,7 +166,7 @@ export async function changePassword(current: string, next: string): Promise<Cha
   }
 }
 
-/** Never reveals whether an e-mail has an account. In demo mode there is nothing to reset. */
+/** Never reveals whether an e-mail has an account. */
 export async function sendPasswordReset(email: string): Promise<{ ok: boolean }> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false };

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ObjectThumb } from "@/components/ObjectThumb";
 import { RestitutionDialog } from "@/components/RestitutionDialog";
 import { DeclarationStatusBadge, KindBadge } from "@/components/StatusBadges";
@@ -15,7 +15,7 @@ import { useToast } from "@/components/ui/Toast";
 import { fold, formatDateTime, relativeTime } from "@/lib/format";
 import { findMatches } from "@/lib/matching";
 import { can } from "@/lib/permissions";
-import { deleteDeclaration, receiveDemoDeclaration, setDeclarationStatus } from "@/lib/store";
+import { deleteDeclaration, loadDeclarationPhotos, setDeclarationStatus } from "@/lib/store";
 import { categoryLabel, type Declaration, type DeclarationKind, type DeclarationStatus, type StoredObject } from "@/lib/types";
 
 export function DeclarationsView() {
@@ -29,6 +29,8 @@ export function DeclarationsView() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [giving, setGiving] = useState<{ object: StoredObject; declaration: Declaration } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [loadedPhotos, setLoadedPhotos] = useState<{ id: string; photos: string[] } | null>(null);
 
   const rows = useMemo(() => {
     const q = fold(query.trim());
@@ -38,6 +40,23 @@ export function DeclarationsView() {
   }, [declarations, kind, status, query]);
 
   const open = declarations.find((d) => d.id === openId);
+  // Photos sent from the borne are loaded only when a declaration is opened.
+  useEffect(() => {
+    let cancelled = false;
+    if (openId) void loadDeclarationPhotos(openId).then((photos) => !cancelled && setLoadedPhotos({ id: openId, photos }));
+    return () => {
+      cancelled = true;
+    };
+  }, [openId]);
+  const photos = loadedPhotos?.id === openId ? loadedPhotos.photos : [];
+
+  async function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>, done: string, after?: () => void) {
+    setBusy(true);
+    const result = await action();
+    setBusy(false);
+    toast(result.ok ? done : result.error);
+    if (result.ok) after?.();
+  }
   const canWrite = can(user, "write");
   const kioskName = (id: string) => kiosks.find((k) => k.id === id)?.name ?? "Borne supprimée";
   const suggestions = open && open.kind === "perdu" && open.status !== "cloturee" ? findMatches([open], objects).slice(0, 3) : [];
@@ -62,20 +81,6 @@ export function DeclarationsView() {
       <PageHeader
         title="Déclarations"
         description="Ce que les élèves et le personnel ont déclaré sur les bornes."
-        actions={
-          canWrite && (
-            <Button
-              variant="secondary"
-              icon="tablet_mac"
-              onClick={() => {
-                receiveDemoDeclaration();
-                toast("Déclaration de démonstration reçue");
-              }}
-            >
-              Simuler une déclaration de la borne
-            </Button>
-          )
-        }
       />
 
       <Panel>
@@ -146,17 +151,17 @@ export function DeclarationsView() {
                   confirmDelete ? (
                     <>
                       <span className="mr-auto text-small text-slate">Supprimer cette déclaration ?</span>
-                      <Button variant="quiet" onClick={() => setConfirmDelete(false)}>Non</Button>
-                      <Button variant="danger" onClick={() => { deleteDeclaration(open.id); setOpenId(null); setConfirmDelete(false); toast("Déclaration supprimée"); }}>Oui, supprimer</Button>
+                      <Button variant="quiet" onClick={() => setConfirmDelete(false)} disabled={busy}>Non</Button>
+                      <Button variant="danger" disabled={busy} onClick={() => run(() => deleteDeclaration(open.id), "Déclaration supprimée", () => { setOpenId(null); setConfirmDelete(false); })}>Oui, supprimer</Button>
                     </>
                   ) : (
                     <Button variant="quiet" icon="delete" className="mr-auto !text-danger" onClick={() => setConfirmDelete(true)}>Supprimer</Button>
                   )
                 )}
                 {!confirmDelete && (open.status === "cloturee" ? (
-                  <Button variant="secondary" icon="undo" onClick={() => { setDeclarationStatus(open.id, "ouverte"); toast("Déclaration rouverte"); }}>Rouvrir</Button>
+                  <Button variant="secondary" icon="undo" disabled={busy} onClick={() => run(() => setDeclarationStatus(open.id, "ouverte"), "Déclaration rouverte")}>Rouvrir</Button>
                 ) : (
-                  <Button variant="secondary" icon="check" onClick={() => { setDeclarationStatus(open.id, "cloturee"); toast("Déclaration clôturée"); }}>Clôturer</Button>
+                  <Button variant="secondary" icon="check" disabled={busy} onClick={() => run(() => setDeclarationStatus(open.id, "cloturee"), "Déclaration clôturée")}>Clôturer</Button>
                 ))}
               </>
             ) : undefined
@@ -171,6 +176,14 @@ export function DeclarationsView() {
           <h3 className="mt-4 text-h2 text-ink">{open.objectName}</h3>
           <p className="text-body text-slate">{categoryLabel(open.category)}{open.location && ` · ${open.location}`}</p>
           {open.description && <p className="mt-3 text-body text-ink">{open.description}</p>}
+          {photos.length > 0 && (
+            <div className="mt-4 flex gap-2">
+              {photos.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={src} alt={`Photo ${i + 1} envoyée depuis la borne`} className="h-24 w-32 rounded-field border border-line object-cover" />
+              ))}
+            </div>
+          )}
 
           <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-line pt-5">
             <div><dt className="tag">Déclarant</dt><dd className="text-body font-semibold text-ink">{open.prenom} {open.nom}</dd></div>

@@ -29,7 +29,10 @@ export type StoredObject = {
   depositedAt: string;
   /** Where it is kept (locker, shelf…). */
   storage: string;
+  /** Small preview (data URL), used in lists. */
   photo?: string;
+  /** Full-size photo in the object-photos bucket; needs a signed URL to display. */
+  photoPath?: string;
   status: ObjectStatus;
   restitutionId?: string;
   /** Declaration this object was created from, if any. */
@@ -101,7 +104,10 @@ export type Kiosk = {
   createdAt: string;
   /** Last time the borne reported in; null until it has been paired. */
   lastSeenAt: string | null;
+  /** Set until the borne has been paired. */
   pairingCode?: string;
+  pairingExpiresAt?: string;
+  pairedAt?: string;
 };
 
 export type Settings = {
@@ -143,6 +149,6 @@ export type State = {
   kiosks: Kiosk[];
   settings: Settings;
   log: LogEntry[];
-  currentUserId: string;
-  counters: { object: number; declaration: number; restitution: number };
+  /** The establishment this data belongs to. */
+  organizationId: string;
 };

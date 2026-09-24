@@ -14,15 +14,18 @@ const STORAGE = ["Casier 1", "Casier 2", "Casier 3", "Coffre", "Étagère sacs",
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+type InitialObject = Partial<Omit<ObjectInput, "photo">> & { photoUrl?: string };
+
 export function ObjectForm({
   initial,
   submitLabel,
   onSubmit,
   onCancel,
 }: {
-  initial?: Partial<ObjectInput>;
+  initial?: InitialObject;
   submitLabel: string;
-  onSubmit: (input: ObjectInput) => void;
+  /** Resolves with an error message to show, or null when it worked. */
+  onSubmit: (input: ObjectInput) => Promise<string | null>;
   onCancel: () => void;
 }) {
   const { objects } = useData();
@@ -34,8 +37,12 @@ export function ObjectForm({
   const [foundAt, setFoundAt] = useState(initial?.foundAt ?? "");
   const [foundOn, setFoundOn] = useState(initial?.foundOn ?? today());
   const [storage, setStorage] = useState(initial?.storage ?? "");
-  const [photo, setPhoto] = useState<string | undefined>(initial?.photo);
+  // undefined = untouched, null = removed, otherwise a new photo.
+  const [photo, setPhoto] = useState<{ full: string; thumb: string } | null | undefined>(undefined);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const previewUrl = photo === null ? undefined : photo ? photo.full : initial?.photoUrl;
   const [errors, setErrors] = useState<{ name?: string; category?: string; storage?: string }>({});
 
   async function handlePhoto(file: File | undefined) {
@@ -48,8 +55,9 @@ export function ObjectForm({
     }
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    setFormError(null);
     const next = {
       name: name.trim() ? undefined : "Donnez un nom à l'objet.",
       category: category ? undefined : "Choisissez une catégorie.",
@@ -57,7 +65,8 @@ export function ObjectForm({
     };
     setErrors(next);
     if (next.name || next.category || next.storage || !category) return;
-    onSubmit({
+    setBusy(true);
+    const message = await onSubmit({
       name: name.trim(),
       category,
       description: description.trim(),
@@ -67,6 +76,8 @@ export function ObjectForm({
       photo,
       fromDeclarationId: initial?.fromDeclarationId,
     });
+    setBusy(false);
+    if (message) setFormError(message);
   }
 
   return (
@@ -96,18 +107,19 @@ export function ObjectForm({
         <datalist id="found-places">{PLACES.map((p) => <option key={p} value={p} />)}</datalist>
         <datalist id="storage-places">{storagePlaces.map((p) => <option key={p} value={p} />)}</datalist>
 
+        {formError && <p role="alert" className="rounded-field bg-danger-tint px-3 py-2.5 text-small font-medium text-danger">{formError}</p>}
         <div className="flex items-center gap-2 pt-2">
-          <Button type="submit">{submitLabel}</Button>
-          <Button variant="quiet" onClick={onCancel}>Annuler</Button>
+          <Button type="submit" disabled={busy}>{busy ? "Enregistrement…" : submitLabel}</Button>
+          <Button variant="quiet" onClick={onCancel} disabled={busy}>Annuler</Button>
         </div>
       </div>
 
       <div>
         <p className="mb-1.5 text-small font-semibold text-ink">Photo</p>
         <div className="flex aspect-square items-center justify-center overflow-hidden rounded-card border border-dashed border-line-strong bg-canvas">
-          {photo ? (
+          {previewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="Aperçu de l'objet" className="size-full object-contain p-2" />
+            <img src={previewUrl} alt="Aperçu de l'objet" className="size-full object-contain p-2" />
           ) : (
             <div className="flex flex-col items-center gap-1 px-6 text-center text-small text-mute">
               <Icon name="add_a_photo" size={32} />
@@ -118,10 +130,10 @@ export function ObjectForm({
         <div className="mt-3 flex items-center gap-2">
           <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-field border border-line-strong bg-white px-3 text-small font-semibold text-ink hover:border-ink">
             <Icon name="upload" size={16} />
-            {photo ? "Changer" : "Ajouter une photo"}
+            {previewUrl ? "Changer" : "Ajouter une photo"}
             <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => handlePhoto(e.target.files?.[0])} />
           </label>
-          {photo && <Button variant="quiet" size="sm" onClick={() => setPhoto(undefined)}>Retirer</Button>}
+          {previewUrl && <Button variant="quiet" size="sm" onClick={() => setPhoto(null)}>Retirer</Button>}
         </div>
         {photoError && <p role="alert" className="mt-2 text-small font-medium text-danger">{photoError}</p>}
       </div>

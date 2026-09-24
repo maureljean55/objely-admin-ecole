@@ -8,7 +8,7 @@ import { PageHeader, Panel } from "@/components/ui/Page";
 import { useToast } from "@/components/ui/Toast";
 import { PasswordSection } from "@/components/PasswordSection";
 import { can } from "@/lib/permissions";
-import { resetDemo, saveSettings } from "@/lib/store";
+import { saveSettings } from "@/lib/store";
 import { SCHOOL_TYPES, type Settings } from "@/lib/types";
 
 export default function ParametresPage() {
@@ -17,11 +17,12 @@ export default function ParametresPage() {
   const toast = useToast();
   const allowed = can(user, "manage_settings");
   const [form, setForm] = useState<Settings>(settings);
+  const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof Settings, string>>>({});
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     const next: typeof errors = {};
     if (!form.schoolName.trim()) next.schoolName = "Le nom est requis.";
@@ -30,8 +31,10 @@ export default function ParametresPage() {
     if (!(form.idleSeconds >= 20 && form.idleSeconds <= 600)) next.idleSeconds = "Entre 20 et 600 secondes.";
     setErrors(next);
     if (Object.keys(next).length) return;
-    saveSettings({ ...form, schoolName: form.schoolName.trim() });
-    toast("Paramètres enregistrés");
+    setBusy(true);
+    const result = await saveSettings({ ...form, schoolName: form.schoolName.trim() });
+    setBusy(false);
+    toast(result.ok ? "Paramètres enregistrés" : result.error);
   }
 
   return (
@@ -89,18 +92,11 @@ export default function ParametresPage() {
         </Panel>
 
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={!allowed}>Enregistrer les paramètres</Button>
+          <Button type="submit" disabled={!allowed || busy}>{busy ? "Enregistrement…" : "Enregistrer les paramètres"}</Button>
           <Button variant="quiet" disabled={!allowed} onClick={() => { setForm(settings); setErrors({}); }}>Annuler les changements</Button>
         </div>
       </form>
 
-      <Panel className="mt-10 p-6">
-        <h2 className="text-h2 text-ink">Données de démonstration</h2>
-        <p className="mt-1 text-body text-slate">Cet espace tourne sur des données de démonstration enregistrées dans ce navigateur. Elles seront remplacées par la base de données de l&apos;établissement.</p>
-        <Button variant="secondary" icon="restart_alt" className="mt-4" onClick={() => { resetDemo(); toast("Données de démonstration réinitialisées"); }}>
-          Réinitialiser les données de démo
-        </Button>
-      </Panel>
     </>
   );
 }

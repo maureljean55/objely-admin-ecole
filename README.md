@@ -27,32 +27,24 @@ Puis ouvrir http://localhost:3000 (la page `/login` mène à la démo).
 | Paramètres | Établissement, durée de conservation, réglages des bornes |
 | Journal d'activité | Qui a fait quoi, et quand |
 
-## État actuel : démonstration
-
-Il n'y a **pas encore de base de données**. Toutes les données sont des données de démonstration,
-enregistrées dans le `localStorage` du navigateur (`src/lib/store.ts`, `src/lib/seed.ts`).
-Rien n'est partagé entre navigateurs, et « Réinitialiser les données de démo » (menu en bas à gauche,
-ou Paramètres) remet tout à zéro. Le menu « Voir comme » permet d'essayer les trois rôles.
-
-Ce qui n'est pas branché :
-
-- **Connexion** : la page `/login` est une maquette, il n'y a pas d'authentification.
-- **Bornes** : elles n'envoient pas encore leurs déclarations ici (le bouton « Simuler une déclaration
-  de la borne » montre ce que ça donnera). L'état « en ligne » et le code d'appairage sont simulés.
-- **Photos** : redimensionnées et gardées dans le navigateur.
-
 ## Base de données
 
-Le schéma existe déjà sur le projet Supabase **objely-ecole** (`jmmqgvtucavtvxwukgpw`) : voir
-`supabase/migrations/20260924100000_school_schema.sql` dans le dépôt `objely-ecole` (la borne).
-Ce projet-ci n'y est pas encore connecté : il lui faut l'URL du projet et sa clé publishable.
+Toutes les données sont réelles et vivent dans le projet Supabase **objely-ecole** (`jmmqgvtucavtvxwukgpw`).
+Le schéma est dans `supabase/migrations/` du dépôt `objely-ecole` (la borne). Chaque établissement ne voit que
+ses propres lignes : c'est la base de données qui l'impose (RLS), pas l'interface.
 
-## Brancher Supabase
+Variables d'environnement (voir `.env.example`) :
 
-Toutes les écritures passent par les fonctions de `src/lib/store.ts`. Pour passer en base :
-remplacer ces fonctions (et `loadStore`) par des appels Supabase, créer les tables
-(objets, déclarations, restitutions, membres, bornes, paramètres, journal) avec des règles RLS
-par établissement, et brancher Supabase Auth sur `/login`. Les pages n'ont pas à changer.
+| Variable | Rôle |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Connexion et lecture/écriture du personnel connecté (publiques) |
+| `ECOLE_SUPABASE_SECRET_KEY` | **Serveur uniquement.** Créer, réinitialiser et supprimer les comptes du personnel (`src/lib/server/staff.ts`) |
+
+- **Connexion** : Supabase Auth, e-mail + mot de passe. Le compte d'un établissement est créé par la plateforme Objely
+  (portail `objely-admin`, page Organisation) avec un mot de passe généré ; il doit le changer à la première connexion.
+- **Photos** : image complète dans le bucket privé `object-photos` (dossier par établissement), miniature dans la ligne.
+- **Déclarations des bornes** : arrivent en direct (Realtime). Les bornes n'ont pas encore de code qui les envoie ici :
+  seule la base et ses fonctions (`pair_kiosk`, `kiosk_submit_declaration`…) sont prêtes.
 
 ## Design
 

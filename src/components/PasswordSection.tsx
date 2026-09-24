@@ -31,7 +31,6 @@ function Rule({ ok, children }: { ok: boolean; children: string }) {
 export function PasswordSection() {
   const { session, refresh } = useSession();
   const toast = useToast();
-  const real = session?.mode === "supabase";
   const must = Boolean(session?.mustChangePassword);
 
   const [current, setCurrent] = useState("");
@@ -83,10 +82,7 @@ export function PasswordSection() {
         </p>
       )}
 
-      {!real ? (
-        <p className="text-body text-slate">En démonstration, le mot de passe ne peut pas être modifié. Cette section sera active avec la connexion sécurisée.</p>
-      ) : (
-        <form onSubmit={submit} noValidate className="grid max-w-[460px] gap-4">
+      <form onSubmit={submit} noValidate className="grid max-w-[460px] gap-4">
           <p className="text-body text-slate">{must ? "Saisissez le mot de passe provisoire, puis votre nouveau mot de passe." : "Changez-le régulièrement, et ne le partagez pas."}</p>
 
           {[
@@ -139,8 +135,7 @@ export function PasswordSection() {
           <div>
             <Button type="submit" disabled={busy} icon="lock_reset">{busy ? "Modification…" : "Changer le mot de passe"}</Button>
           </div>
-        </form>
-      )}
+      </form>
     </section>
   );
 }

@@ -4,13 +4,14 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { authIsReal, checkSession, DEMO_EMAIL, DEMO_PASSWORD, safeNext, sendPasswordReset, signIn, type SignInResult } from "@/lib/auth";
+import { authIsReal, checkSession, safeNext, sendPasswordReset, signIn, type SignInResult } from "@/lib/auth";
 
 const MESSAGES: Record<Exclude<SignInResult, { ok: true }>["reason"], string> = {
   invalid: "E-mail ou mot de passe incorrect.",
   no_membership: "Ce compte n'est rattaché à aucun établissement. Demandez un accès à l'administrateur de votre établissement.",
   rate_limited: "Trop de tentatives. Patientez quelques minutes avant de réessayer.",
   network: "La connexion a échoué. Vérifiez votre connexion internet et réessayez.",
+  not_configured: "Le service de connexion n'est pas configuré. Contactez Objely.",
 };
 
 const CONTROL =
@@ -77,7 +78,7 @@ export function LoginForm() {
     }
     setErrors({});
     if (!real) {
-      setNotice("En démonstration, le mot de passe est celui indiqué ci-dessous.");
+      setFormError(MESSAGES.not_configured);
       return;
     }
     await sendPasswordReset(email);
@@ -173,34 +174,7 @@ export function LoginForm() {
           </form>
         </div>
 
-        {!real && (
-          <div className="mt-5 rounded-card border border-dashed border-line-strong px-5 py-4 text-small text-slate">
-            <p className="font-semibold text-ink">Démonstration</p>
-            <p className="mt-0.5">La connexion sécurisée arrive avec la base de données. En attendant, utilisez ce compte :</p>
-            <dl className="mt-3 flex flex-col gap-2 font-mono text-[13px] text-ink">
-              <div>
-                <dt className="tag !text-[11px]">E-mail</dt>
-                <dd className="select-all">{DEMO_EMAIL}</dd>
-              </div>
-              <div>
-                <dt className="tag !text-[11px]">Mot de passe</dt>
-                <dd className="select-all">{DEMO_PASSWORD}</dd>
-              </div>
-            </dl>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail(DEMO_EMAIL);
-                setPassword(DEMO_PASSWORD);
-                setErrors({});
-                setFormError(null);
-              }}
-              className="mt-3 font-semibold text-blue hover:underline"
-            >
-              Remplir le formulaire
-            </button>
-          </div>
-        )}
+        <p className="mt-5 text-center text-small text-mute">Vous n&apos;avez pas encore d&apos;accès ? Il vous a été transmis par Objely à l&apos;inscription de votre établissement.</p>
       </div>
     </main>
   );

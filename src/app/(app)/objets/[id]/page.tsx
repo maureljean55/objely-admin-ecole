@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ObjectForm } from "@/components/ObjectForm";
 import { ObjectThumb } from "@/components/ObjectThumb";
 import { RestitutionDialog } from "@/components/RestitutionDialog";
@@ -15,7 +15,7 @@ import { EmptyState, PageHeader, Panel } from "@/components/ui/Page";
 import { useToast } from "@/components/ui/Toast";
 import { daysSince, formatDate, formatDateTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
-import { deleteObject, markToDonate, updateObject } from "@/lib/store";
+import { deleteObject, getObjectPhotoUrl, markToDonate, updateObject } from "@/lib/store";
 import { categoryLabel } from "@/lib/types";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -36,8 +36,20 @@ export default function ObjectPage() {
   const [editing, setEditing] = useState(false);
   const [giving, setGiving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [signed, setSigned] = useState<{ path: string; url: string } | null>(null);
 
   const object = objects.find((o) => o.id === id);
+  const photoPath = object?.photoPath;
+  useEffect(() => {
+    let cancelled = false;
+    if (photoPath) void getObjectPhotoUrl(photoPath).then((url) => !cancelled && url && setSigned({ path: photoPath, url }));
+    return () => {
+      cancelled = true;
+    };
+  }, [photoPath]);
+  // Only ever the photo of the object on screen (never a stale one while the next loads).
+  const fullPhoto = signed && signed.path === photoPath ? signed.url : null;
   if (!object) {
     return (
       <Panel>
@@ -57,13 +69,15 @@ export default function ObjectPage() {
         <PageHeader title={`Modifier ${object.ref}`} description={object.name} />
         <Panel className="p-8">
           <ObjectForm
-            initial={object}
+            initial={{ ...object, photoUrl: fullPhoto ?? object.photo }}
             submitLabel="Enregistrer les modifications"
             onCancel={() => setEditing(false)}
-            onSubmit={(input) => {
-              updateObject(object.id, input);
+            onSubmit={async (input) => {
+              const result = await updateObject(object.id, input);
+              if (!result.ok) return result.error;
               setEditing(false);
               toast("Objet modifié");
+              return null;
             }}
           />
         </Panel>
@@ -99,9 +113,9 @@ export default function ObjectPage() {
 
       <div className="grid grid-cols-[340px_1fr] gap-6">
         <Panel className="flex aspect-square items-center justify-center self-start overflow-hidden">
-          {object.photo ? (
+          {fullPhoto ?? object.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={object.photo} alt={object.name} className="size-full object-contain p-4" />
+            <img src={fullPhoto ?? object.photo} alt={object.name} className="size-full object-contain p-4" />
           ) : (
             <div className="flex flex-col items-center gap-2 text-mute">
               <ObjectThumb category={object.category} name={object.name} size={96} />
@@ -162,11 +176,11 @@ export default function ObjectPage() {
           {canWrite && object.status !== "restitue" && (
             <Panel className="flex flex-wrap items-center gap-2 p-4">
               {object.status === "en_stock" ? (
-                <Button variant="secondary" icon="volunteer_activism" onClick={() => { markToDonate(object.id, true); toast("Objet marqué à donner"); }}>
+                <Button variant="secondary" icon="volunteer_activism" disabled={busy} onClick={async () => { setBusy(true); const r = await markToDonate(object.id, true); setBusy(false); toast(r.ok ? "Objet marqué à donner" : r.error); }}>
                   Marquer à donner
                 </Button>
               ) : (
-                <Button variant="secondary" icon="undo" onClick={() => { markToDonate(object.id, false); toast("Objet remis en stock"); }}>
+                <Button variant="secondary" icon="undo" disabled={busy} onClick={async () => { setBusy(true); const r = await markToDonate(object.id, false); setBusy(false); toast(r.ok ? "Objet remis en stock" : r.error); }}>
                   Remettre en stock
                 </Button>
               )}
@@ -187,17 +201,21 @@ export default function ObjectPage() {
           onClose={() => setConfirmDelete(false)}
           footer={
             <>
-              <Button variant="quiet" onClick={() => setConfirmDelete(false)}>Annuler</Button>
+              <Button variant="quiet" onClick={() => setConfirmDelete(false)} disabled={busy}>Annuler</Button>
               <Button
                 variant="danger"
                 icon="delete"
-                onClick={() => {
-                  deleteObject(object.id);
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  const result = await deleteObject(object.id);
+                  setBusy(false);
+                  if (!result.ok) return toast(result.error);
                   toast("Objet supprimé");
                   router.push("/objets");
                 }}
               >
-                Supprimer définitivement
+                {busy ? "Suppression…" : "Supprimer définitivement"}
               </Button>
             </>
           }

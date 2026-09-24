@@ -51,7 +51,7 @@ export function StatusDonut({ counts }: { counts: StatusCounts }) {
 
   return (
     <div>
-      <ChartHeader title="Où en sont les objets ?" description={`${total} objets enregistrés`} right={<ViewSwitch view={view} onChange={setView} />} />
+      <ChartHeader title="Où en sont les objets ?" description={`${total} ${total > 1 ? "objets enregistrés" : "objet enregistré"}`} right={<ViewSwitch view={view} onChange={setView} />} />
 
       {view === "table" ? (
         <div className="rounded-field border border-line">

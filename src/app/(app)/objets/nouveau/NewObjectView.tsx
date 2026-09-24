@@ -36,10 +36,12 @@ export function NewObjectView() {
           initial={from ? { name: from.objectName, category: from.category, description: from.description, foundAt: from.location, fromDeclarationId: from.id } : undefined}
           submitLabel="Enregistrer l'objet"
           onCancel={() => router.push(from ? "/declarations" : "/objets")}
-          onSubmit={(input) => {
-            const id = createObject(input);
+          onSubmit={async (input) => {
+            const result = await createObject(input);
+            if (!result.ok) return result.error;
             toast("Objet enregistré");
-            router.push(`/objets/${id}`);
+            router.push(`/objets/${result.id}`);
+            return null;
           }}
         />
       </Panel>

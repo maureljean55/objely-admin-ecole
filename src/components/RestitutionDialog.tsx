@@ -17,10 +17,13 @@ export function RestitutionDialog({ object, declaration, onClose }: { object: St
   const [classe, setClasse] = useState(declaration?.classe ?? "");
   const [idChecked, setIdChecked] = useState(false);
   const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ prenom?: string; nom?: string; classe?: string; idChecked?: string }>({});
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
+    setFormError(null);
     const next = {
       prenom: prenom.trim() ? undefined : "Requis",
       nom: nom.trim() ? undefined : "Requis",
@@ -29,7 +32,10 @@ export function RestitutionDialog({ object, declaration, onClose }: { object: St
     };
     setErrors(next);
     if (Object.values(next).some(Boolean)) return;
-    createRestitution({ objectId: object.id, prenom: prenom.trim(), nom: nom.trim(), classe: classe.trim(), idChecked, note: note.trim(), declarationId: declaration?.id });
+    setBusy(true);
+    const result = await createRestitution({ objectId: object.id, prenom: prenom.trim(), nom: nom.trim(), classe: classe.trim(), idChecked, note: note.trim(), declarationId: declaration?.id });
+    setBusy(false);
+    if (!result.ok) return setFormError(result.error);
     toast(`${object.name} rendu à ${prenom.trim()} ${nom.trim()}`);
     onClose();
   }
@@ -40,8 +46,8 @@ export function RestitutionDialog({ object, declaration, onClose }: { object: St
       onClose={onClose}
       footer={
         <>
-          <Button variant="quiet" onClick={onClose}>Annuler</Button>
-          <Button type="submit" form="restitution-form" icon="task_alt">Confirmer la restitution</Button>
+          <Button variant="quiet" onClick={onClose} disabled={busy}>Annuler</Button>
+          <Button type="submit" form="restitution-form" icon="task_alt" disabled={busy}>{busy ? "Enregistrement…" : "Confirmer la restitution"}</Button>
         </>
       }
     >
@@ -63,6 +69,7 @@ export function RestitutionDialog({ object, declaration, onClose }: { object: St
           <Checkbox label="J'ai vérifié son identité et sa description de l'objet" hint="Une pièce d'identité ou une carte d'élève, et au moins un détail que seul le propriétaire connaît." checked={idChecked} onChange={(e) => setIdChecked(e.target.checked)} />
           {errors.idChecked && <p role="alert" className="mt-1.5 text-small font-medium text-danger">{errors.idChecked}</p>}
         </div>
+        {formError && <p role="alert" className="rounded-field bg-danger-tint px-3 py-2.5 text-small font-medium text-danger">{formError}</p>}
         <TextAreaField label="Note (facultatif)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={250} className="!min-h-[64px]" />
       </form>
     </Dialog>
