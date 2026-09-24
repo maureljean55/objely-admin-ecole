@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { ToastProvider } from "@/components/ui/Toast";
 import { can, type Permission } from "@/lib/permissions";
 import { findMatches } from "@/lib/matching";
+import { checkSession, signOut, type Session } from "@/lib/auth";
 import { loadStore, resetDemo, switchUser, useStoreState } from "@/lib/store";
 import { initials } from "@/lib/format";
 import { ROLES, type State } from "@/lib/types";
@@ -34,9 +35,35 @@ type NavItem = { href: string; label: string; icon: string; count?: number; exac
 
 export function AppShell({ children }: { children: ReactNode }) {
   const state = useStoreState();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [session, setSession] = useState<Session | null>(null);
   useEffect(() => loadStore(), []);
 
-  if (!state) {
+  // Nothing is shown before someone has signed in: no session sends you to /login, and back afterwards.
+  useEffect(() => {
+    let cancelled = false;
+    checkSession().then((s) => {
+      if (cancelled) return;
+      if (!s) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      else setSession(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router, pathname]);
+
+  // In demo mode the signed-in e-mail decides which demo staff member you are.
+  // Applied once per sign-in, so the "Voir comme" demo menu can still switch afterwards.
+  const appliedFor = useRef<string | null>(null);
+  const signedInAs = state && session ? state.staff.find((m) => m.email.toLowerCase() === session.email) : undefined;
+  useEffect(() => {
+    if (!signedInAs || !session || appliedFor.current === session.email) return;
+    appliedFor.current = session.email;
+    switchUser(signedInAs.id);
+  }, [signedInAs, session]);
+
+  if (!state || !session) {
     return (
       <div className="flex h-screen">
         <div className="w-[264px] shrink-0 bg-ink" />
@@ -145,6 +172,7 @@ function Sidebar() {
 }
 
 function UserMenu() {
+  const router = useRouter();
   const state = useData();
   const user = useCurrentUser();
   const [open, setOpen] = useState(false);
@@ -173,10 +201,17 @@ function UserMenu() {
             <Icon name="restart_alt" size={16} />
             Réinitialiser les données de démo
           </button>
-          <Link href="/login" className="flex items-center gap-2 rounded-field px-2 py-1.5 text-small text-danger hover:bg-danger-tint">
+          <button
+            type="button"
+            onClick={async () => {
+              await signOut();
+              router.push("/login");
+            }}
+            className="flex w-full items-center gap-2 rounded-field px-2 py-1.5 text-left text-small text-danger hover:bg-danger-tint"
+          >
             <Icon name="logout" size={16} />
             Se déconnecter
-          </Link>
+          </button>
         </div>
       )}
       <button
