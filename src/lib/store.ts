@@ -410,7 +410,15 @@ export async function deleteKiosk(id: string): Promise<Result> {
 export async function regeneratePairingCode(id: string): Promise<Result<{ code: string }>> {
   const { data, error } = await getSupabase()!.rpc("regenerate_kiosk_pairing_code", { p_kiosk_id: id });
   if (error) return fail(error);
-  await refresh("kiosks", "pairingCodes");
+  await refresh("kiosks", "pairingCodes", "log");
+  return { ok: true, code: data as string };
+}
+
+/** Sets a code chosen by the administrator (6 letters or digits). */
+export async function setPairingCode(id: string, code: string): Promise<Result<{ code: string }>> {
+  const { data, error } = await getSupabase()!.rpc("set_kiosk_pairing_code", { p_kiosk_id: id, p_code: code });
+  if (error) return fail(error);
+  await refresh("kiosks", "pairingCodes", "log");
   return { ok: true, code: data as string };
 }
 

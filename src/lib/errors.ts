@@ -9,6 +9,9 @@ export function explain(error: DbError): string {
   if (msg.includes("already_restituted")) return "Cet objet a déjà été rendu.";
   if (msg.includes("id_not_checked")) return "Confirmez la vérification d'identité avant de rendre l'objet.";
   if (msg.includes("already_paired")) return "Cette borne est déjà appairée.";
+  if (msg.includes("code_taken")) return "Ce code est déjà utilisé par une autre borne. Choisissez-en un autre.";
+  if (msg.includes("invalid_code_format")) return "Le code doit contenir 6 lettres ou chiffres.";
+  if (msg.includes("code_unavailable")) return "Aucun code libre n'a pu être généré. Réessayez.";
   if (error.code === "42501" || /row-level security|permission denied/i.test(msg)) return "Votre rôle ne permet pas cette action.";
   if (error.code === "23505") return "Cet élément existe déjà.";
   if (error.code === "23514") return "Une des valeurs est hors des limites autorisées.";

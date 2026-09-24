@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCurrentUser, useData } from "@/components/shell/AppShell";
 import { useNow } from "@/components/shell/useNow";
 import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { TextField } from "@/components/ui/Fields";
@@ -11,7 +12,7 @@ import { EmptyState, PageHeader, Panel } from "@/components/ui/Page";
 import { useToast } from "@/components/ui/Toast";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
-import { createKiosk, deleteKiosk, regeneratePairingCode, updateKiosk } from "@/lib/store";
+import { createKiosk, deleteKiosk, regeneratePairingCode, setPairingCode, updateKiosk } from "@/lib/store";
 import type { Kiosk, PairingCodeRecord } from "@/lib/types";
 
 const ONLINE_WINDOW = 10 * 60_000;
@@ -19,49 +20,47 @@ const ONLINE_WINDOW = 10 * 60_000;
 /** "#A7K9Q2": the code is stored without the "#". */
 const formatCode = (code?: string) => (code ? `#${code}` : "");
 
-function PairingCode({ code, expiresAt }: { code: string; expiresAt?: string }) {
+/** The borne's permanent code, with a one-click copy. */
+function CodeCell({ code, onEdit }: { code?: string; onEdit?: () => void }) {
   const [copied, setCopied] = useState(false);
+  if (!code) return <span className="text-mute">—</span>;
   return (
-    <div className="rounded-field bg-warn-tint px-3 py-2.5">
-      <p className="tag !text-warn">Code d&apos;appairage</p>
-      <div className="mt-1 flex items-center justify-between gap-2">
-        <span className="select-all font-mono text-[28px] font-semibold leading-none tracking-[0.1em] text-ink">{formatCode(code)}</span>
-        <Button
-          size="sm"
-          variant="secondary"
-          icon={copied ? "check" : "content_copy"}
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(formatCode(code));
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            } catch {
-              // Clipboard blocked: the code is still selectable on screen.
-            }
-          }}
-        >
-          {copied ? "Copié" : "Copier"}
-        </Button>
-      </div>
-      <p className="mt-1.5 text-small text-warn">
-        À saisir sur la borne{expiresAt ? `, valable jusqu'au ${new Date(expiresAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}` : ""}.
-      </p>
-    </div>
+    <span className="inline-flex items-center gap-1">
+      <span className="select-all font-mono text-body font-semibold tracking-[0.08em] text-ink">{formatCode(code)}</span>
+      <button
+        type="button"
+        title={copied ? "Copié" : "Copier le code"}
+        aria-label={`Copier le code ${formatCode(code)}`}
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(formatCode(code));
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          } catch {
+            // Clipboard blocked: the code is still selectable on screen.
+          }
+        }}
+        className={`flex size-7 items-center justify-center rounded-field transition-colors ${copied ? "text-ok" : "text-slate hover:bg-black/5 hover:text-ink"}`}
+      >
+        {copied ? <Icon name="check" size={16} /> : <Icon name="content_copy" size={16} />}
+      </button>
+      {onEdit && (
+        <button type="button" title="Modifier le code" aria-label={`Modifier le code ${formatCode(code)}`} onClick={onEdit} className="flex size-7 items-center justify-center rounded-field text-slate transition-colors hover:bg-black/5 hover:text-ink">
+          <Icon name="edit" size={16} />
+        </button>
+      )}
+    </span>
   );
 }
 
-function CodeStatus({ code, now }: { code: PairingCodeRecord; now: number }) {
-  if (code.usedAt) return <Badge tone="ok">Utilisé le {formatDateTime(code.usedAt)}</Badge>;
-  if (code.replacedAt) return <Badge>Remplacé</Badge>;
-  if (new Date(code.expiresAt).getTime() < now) return <Badge tone="danger">Expiré</Badge>;
-  return <Badge tone="blue">Actif jusqu&apos;au {formatDateTime(code.expiresAt)}</Badge>;
+function CodeStatus({ code }: { code: PairingCodeRecord }) {
+  if (code.replacedAt) return <Badge>Remplacé le {formatDateTime(code.replacedAt)}</Badge>;
+  if (code.usedAt) return <Badge tone="ok">Actif · utilisé le {formatDateTime(code.usedAt)}</Badge>;
+  return <Badge tone="blue">Actif</Badge>;
 }
 
 function KioskStatus({ kiosk, now }: { kiosk: Kiosk; now: number }) {
-  if (!kiosk.pairedAt) {
-    const expired = kiosk.pairingExpiresAt ? new Date(kiosk.pairingExpiresAt).getTime() < now : false;
-    return expired ? <Badge tone="danger">Code expiré</Badge> : <Badge tone="warn">En attente d&apos;appairage</Badge>;
-  }
+  if (!kiosk.pairedAt) return <Badge tone="warn">En attente d&apos;appairage</Badge>;
   if (!kiosk.lastSeenAt) return <Badge tone="warn">Jamais vue</Badge>;
   return now - new Date(kiosk.lastSeenAt).getTime() < ONLINE_WINDOW ? <Badge tone="ok">En ligne</Badge> : <Badge tone="danger">Hors ligne</Badge>;
 }
@@ -77,6 +76,9 @@ export default function BornesPage() {
   const [location, setLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Kiosk | null>(null);
+  const [codeFor, setCodeFor] = useState<Kiosk | null>(null);
+  const [codeDraft, setCodeDraft] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   function openForm(target: Kiosk | "new") {
@@ -105,11 +107,37 @@ export default function BornesPage() {
     setEditing(null);
   }
 
-  async function newCode(k: Kiosk) {
+  function openCode(k: Kiosk) {
+    setCodeFor(k);
+    setCodeDraft(formatCode(k.pairingCode));
+    setCodeError(null);
+  }
+
+  // Code typed by the administrator: "#" + 6 letters or digits, any case.
+  const normalizeCode = (raw: string) => raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 6);
+
+  async function saveCode(event: React.FormEvent) {
+    event.preventDefault();
+    if (!codeFor) return;
+    const code = normalizeCode(codeDraft);
+    if (code.length !== 6) return setCodeError("Le code doit contenir 6 lettres ou chiffres.");
     setBusy(true);
-    const result = await regeneratePairingCode(k.id);
+    const result = await setPairingCode(codeFor.id, code);
     setBusy(false);
-    toast(result.ok ? "Nouveau code généré" : result.error);
+    if (!result.ok) return setCodeError(result.error);
+    toast(`Code modifié : ${formatCode(result.code)}`);
+    setCodeFor(null);
+  }
+
+  async function randomCode() {
+    if (!codeFor) return;
+    setBusy(true);
+    const result = await regeneratePairingCode(codeFor.id);
+    setBusy(false);
+    if (!result.ok) return setCodeError(result.error);
+    setCodeDraft(formatCode(result.code));
+    toast(`Nouveau code : ${formatCode(result.code)}`);
+    setCodeFor(null);
   }
 
   return (
@@ -123,46 +151,54 @@ export default function BornesPage() {
       {kiosks.length === 0 ? (
         <Panel><EmptyState title="Aucune borne" text="Ajoutez la première borne pour qu'élèves et personnel puissent déclarer un objet." /></Panel>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
-          {kiosks.map((k) => (
-            <Panel key={k.id} className="flex flex-col gap-3 p-5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 className="truncate text-h2 text-ink">{k.name}</h2>
-                  <p className="truncate text-small text-slate">{k.location || "Emplacement non précisé"}</p>
-                </div>
-                <KioskStatus kiosk={k} now={now} />
-              </div>
-              <dl className="grid grid-cols-2 gap-3 border-t border-line pt-3">
-                <div><dt className="tag">Dernier signal</dt><dd className="text-small text-ink">{k.lastSeenAt ? relativeTime(k.lastSeenAt) : "Jamais"}</dd></div>
-                <div><dt className="tag">Version</dt><dd className="font-mono text-small text-ink">v{k.version}</dd></div>
-              </dl>
-              {!k.pairedAt && (
-                new Date(k.pairingExpiresAt ?? 0).getTime() > now && k.pairingCode ? (
-                  <PairingCode code={k.pairingCode} expiresAt={k.pairingExpiresAt} />
-                ) : (
-                  <div className="flex items-center justify-between gap-2 rounded-field bg-danger-tint px-3 py-2 text-small text-danger">
-                    <span>Le code d&apos;appairage a expiré.</span>
-                    {manage && <Button size="sm" variant="secondary" disabled={busy} onClick={() => newCode(k)}>Nouveau code</Button>}
-                  </div>
-                )
-              )}
-              {manage && (
-                <div className="-mb-1 flex justify-end gap-1">
-                  <IconButton icon="edit" aria-label={`Modifier ${k.name}`} onClick={() => openForm(k)} />
-                  <IconButton icon="delete" tone="danger" aria-label={`Supprimer ${k.name}`} onClick={() => setDeleting(k)} />
-                </div>
-              )}
-            </Panel>
-          ))}
-        </div>
+        <Panel>
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-line text-small text-mute">
+                <th className="px-6 py-2.5 font-semibold">Borne</th>
+                <th className="px-3 py-2.5 font-semibold">Statut</th>
+                <th className="px-3 py-2.5 font-semibold">Code d&apos;appairage</th>
+                <th className="px-3 py-2.5 font-semibold">Dernier signal</th>
+                <th className="px-3 py-2.5 font-semibold">Version</th>
+                {manage && <th className="px-6 py-2.5"><span className="sr-only">Actions</span></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {kiosks.map((k) => (
+                <tr key={k.id} className="border-b border-line last:border-0">
+                  <td className="px-6 py-3">
+                    <p className="font-semibold text-ink">{k.name}</p>
+                    <p className="text-small text-slate">{k.location || "Emplacement non précisé"}</p>
+                  </td>
+                  <td className="px-3 py-3"><KioskStatus kiosk={k} now={now} /></td>
+                  <td className="px-3 py-3"><CodeCell code={k.pairingCode} onEdit={manage ? () => openCode(k) : undefined} /></td>
+                  <td className="px-3 py-3 text-small text-slate">{k.lastSeenAt ? relativeTime(k.lastSeenAt) : "Jamais"}</td>
+                  <td className="px-3 py-3 font-mono text-small text-slate">v{k.version}</td>
+                  {manage && (
+                    <td className="px-6 py-3">
+                      <div className="flex justify-end gap-1">
+                        <IconButton icon="edit" aria-label={`Modifier ${k.name}`} title="Modifier la borne" onClick={() => openForm(k)} />
+                        <IconButton icon="delete" tone="danger" aria-label={`Supprimer ${k.name}`} title="Supprimer la borne" onClick={() => setDeleting(k)} />
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
       )}
+      <p className="mt-3 text-small text-mute">
+        Le code d&apos;une borne est définitif : il sert à l&apos;appairer, et à l&apos;appairer de nouveau si la tablette est réinitialisée. Modifiez-le si
+        vous pensez qu&apos;il a circulé : l&apos;ancien cessera de fonctionner. Une borne est « en ligne » si elle a donné signe de vie dans les 10 dernières minutes.
+      </p>
+
       <section className="mt-8">
         <h2 className="text-h2 text-ink">Historique des codes</h2>
-        <p className="mb-3 mt-0.5 text-small text-mute">Tous les codes d&apos;appairage émis, conservés après leur utilisation.</p>
+        <p className="mb-3 mt-0.5 text-small text-mute">Tous les codes d&apos;appairage émis, y compris ceux qui ont été remplacés.</p>
         <Panel>
           {pairingCodes.length === 0 ? (
-            <EmptyState title="Aucun code pour le moment" text="Chaque fois que vous ajoutez une borne ou demandez un nouveau code, il est enregistré ici." />
+            <EmptyState title="Aucun code pour le moment" text="Chaque fois que vous ajoutez une borne ou modifiez son code, il est enregistré ici." />
           ) : (
             <table className="w-full text-left">
               <thead>
@@ -181,7 +217,7 @@ export default function BornesPage() {
                     <td className="px-3 py-3 text-ink">{c.kioskName}</td>
                     <td className="px-3 py-3 text-slate">{formatDateTime(c.createdAt)}</td>
                     <td className="px-3 py-3 text-slate">{c.createdBy ?? "—"}</td>
-                    <td className="px-6 py-3"><CodeStatus code={c} now={now} /></td>
+                    <td className="px-6 py-3"><CodeStatus code={c} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -189,8 +225,6 @@ export default function BornesPage() {
           )}
         </Panel>
       </section>
-
-      <p className="mt-4 text-small text-mute">Une borne est « en ligne » si elle a donné signe de vie dans les 10 dernières minutes.</p>
 
       {editing && (
         <Dialog
@@ -205,6 +239,38 @@ export default function BornesPage() {
         </Dialog>
       )}
 
+      {codeFor && (
+        <Dialog
+          title={`Code de ${codeFor.name}`}
+          onClose={() => setCodeFor(null)}
+          footer={
+            <>
+              <Button variant="quiet" onClick={() => setCodeFor(null)} disabled={busy}>Annuler</Button>
+              <Button type="submit" form="code-form" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer"}</Button>
+            </>
+          }
+        >
+          <form id="code-form" onSubmit={saveCode} noValidate className="flex flex-col gap-4">
+            <TextField
+              label="Code d'appairage"
+              hint="6 lettres ou chiffres. Le « # » est ajouté tout seul."
+              value={codeDraft}
+              onChange={(e) => {
+                setCodeDraft(`#${normalizeCode(e.target.value)}`);
+                setCodeError(null);
+              }}
+              error={codeError ?? undefined}
+              autoComplete="off"
+              spellCheck={false}
+              className="font-mono text-[18px] tracking-[0.1em]"
+            />
+            <Button variant="secondary" icon="autorenew" onClick={randomCode} disabled={busy}>Générer un code aléatoire</Button>
+            <p className="text-small text-slate">
+              L&apos;ancien code cessera de fonctionner. La borne déjà appairée continue de marcher : le nouveau code ne sert qu&apos;à l&apos;appairer.
+            </p>
+          </form>
+        </Dialog>
+      )}
 
       {deleting && (
         <Dialog
