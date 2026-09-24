@@ -70,6 +70,23 @@ async function loadIdentity(supabase: SupabaseClient): Promise<Identity | null> 
   return { name: member?.full_name ?? "", role: claim.role, organizationId: claim.organization_id, organizationName: organization?.name };
 }
 
+export type Suspension = { organizationName: string; since: string };
+
+/**
+ * Set when the signed-in person's establishment has been suspended by Objely. Everything else is then refused by the
+ * database, so this is the only way to tell them why. null when not suspended, or when it can't be checked (offline).
+ */
+export async function checkSuspension(supabase: SupabaseClient | null = getSupabase()): Promise<Suspension | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("my_organization_suspension");
+    const row = !error && Array.isArray(data) ? (data[0] as { organization_name: string; suspended_at: string } | undefined) : undefined;
+    return row ? { organizationName: row.organization_name, since: row.suspended_at } : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The signed-in session, or null. For real accounts, checks that the token is still valid and reads the live flag. */
 export async function checkSession(): Promise<Session | null> {
   const stored = readStored();
@@ -111,7 +128,7 @@ export async function signOut() {
 
 export type SignInResult =
   | { ok: true; mustChangePassword: boolean }
-  | { ok: false; reason: "invalid" | "no_membership" | "rate_limited" | "network" | "not_configured" };
+  | { ok: false; reason: "invalid" | "no_membership" | "suspended" | "rate_limited" | "network" | "not_configured" };
 
 export async function signIn(email: string, password: string): Promise<SignInResult> {
   const address = email.trim().toLowerCase();
@@ -125,8 +142,9 @@ export async function signIn(email: string, password: string): Promise<SignInRes
 
     const identity = await loadIdentity(supabase);
     if (!identity) {
+      const suspended = await checkSuspension(supabase);
       await supabase.auth.signOut();
-      return { ok: false, reason: "no_membership" };
+      return { ok: false, reason: suspended ? "suspended" : "no_membership" };
     }
 
     const mustChangePassword = auth.user.user_metadata?.must_change_password === true;

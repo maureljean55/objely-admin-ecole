@@ -8,9 +8,9 @@ import { Icon } from "@/components/ui/Icon";
 import { ToastProvider } from "@/components/ui/Toast";
 import { can, type Permission } from "@/lib/permissions";
 import { findMatches } from "@/lib/matching";
-import { checkSession, signOut, type Session } from "@/lib/auth";
+import { checkSession, checkSuspension, signOut, type Session, type Suspension } from "@/lib/auth";
 import { resetStore, startStore, useStoreError, useStoreState } from "@/lib/store";
-import { initials } from "@/lib/format";
+import { formatDate, initials } from "@/lib/format";
 import { ROLES, type StaffMember, type State } from "@/lib/types";
 
 const DataContext = createContext<State | null>(null);
@@ -63,7 +63,27 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [router, pathname]);
 
-  const organizationId = session?.organizationId;
+  // Objely can suspend the establishment at any time: check on arrival, every minute and when the tab comes back.
+  const [suspension, setSuspension] = useState<Suspension | null>(null);
+  const signedIn = Boolean(session);
+  useEffect(() => {
+    if (!signedIn) return;
+    let stopped = false;
+    const check = async () => {
+      const result = await checkSuspension();
+      if (!stopped) setSuspension(result);
+    };
+    void check();
+    const id = setInterval(check, 60_000);
+    window.addEventListener("focus", check);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      window.removeEventListener("focus", check);
+    };
+  }, [signedIn]);
+
+  const organizationId = suspension ? undefined : session?.organizationId;
   useEffect(() => (organizationId ? startStore(organizationId) : undefined), [organizationId]);
 
   const refresh = async () => setSession(await checkSession());
@@ -74,6 +94,35 @@ export function AppShell({ children }: { children: ReactNode }) {
     const t = setTimeout(() => setSlow(true), 15_000);
     return () => clearTimeout(t);
   }, [state]);
+
+  if (session && suspension) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-canvas p-10">
+        <div role="alert" className="max-w-lg rounded-card border border-danger/30 bg-white p-8 text-center shadow-sm">
+          <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-danger-tint text-danger">
+            <Icon name="block" size={28} />
+          </span>
+          <h1 className="mt-4 text-title text-ink">Établissement suspendu</h1>
+          <p className="mt-2 text-body text-slate">
+            L&apos;accès de <strong className="text-ink">{suspension.organizationName}</strong> à Objely École a été suspendu le {formatDate(suspension.since)}. Vos
+            données sont conservées : rien n&apos;a été supprimé.
+          </p>
+          <p className="mt-2 text-body text-slate">Contactez Objely pour rétablir l&apos;accès. Cette page se met à jour toute seule dès qu&apos;il est rétabli.</p>
+          <button
+            type="button"
+            onClick={async () => {
+              await signOut();
+              resetStore();
+              router.replace("/login");
+            }}
+            className="mt-6 h-10 rounded-field border border-line-strong bg-white px-5 font-semibold text-ink"
+          >
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!session || !state) {
     return (

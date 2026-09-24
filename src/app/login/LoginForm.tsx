@@ -9,6 +9,7 @@ import { checkSession, safeNext, signIn, type SignInResult } from "@/lib/auth";
 const MESSAGES: Record<Exclude<SignInResult, { ok: true }>["reason"], string> = {
   invalid: "E-mail ou mot de passe incorrect.",
   no_membership: "Ce compte n'est rattaché à aucun établissement. Demandez un accès à l'administrateur de votre établissement.",
+  suspended: "L'accès de votre établissement a été suspendu par Objely. Contactez Objely pour le rétablir.",
   rate_limited: "Trop de tentatives. Patientez quelques minutes avant de réessayer.",
   network: "La connexion a échoué. Vérifiez votre connexion internet et réessayez.",
   not_configured: "Le service de connexion n'est pas configuré. Contactez Objely.",
