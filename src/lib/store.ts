@@ -20,7 +20,7 @@ import type {
 // Every write goes through the actions below, so swapping in Supabase later means replacing
 // these functions (and `load`/`persist`), not touching the pages.
 
-const KEY = "objely-ecole-admin:v1";
+const KEY = "objely-ecole-admin:v2";
 
 let state: State | null = null;
 const listeners = new Set<() => void>();

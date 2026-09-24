@@ -9,6 +9,8 @@ import { useNow } from "@/components/shell/useNow";
 import { daysSince, formatDate, plural, relativeTime, formatTime } from "@/lib/format";
 import { findMatches } from "@/lib/matching";
 import { can } from "@/lib/permissions";
+import { DeclarationsChart, type DayCount } from "@/components/charts/DeclarationsChart";
+import { StatusDonut } from "@/components/charts/StatusDonut";
 
 const ACTION_ICON: Record<string, string> = {
   "declaration.create": "edit_note",
@@ -43,7 +45,27 @@ export default function DashboardPage() {
     const monthAgo = now - 30 * 86_400_000;
     const returned = state.restitutions.filter((r) => new Date(r.doneAt).getTime() > monthAgo);
     const kiosksOnline = state.kiosks.filter((k) => k.lastSeenAt && now - new Date(k.lastSeenAt).getTime() < 10 * 60_000).length;
-    return { inStock, overdue, stale, matches, ages, returned, kiosksOnline, retention };
+    // Last 14 days (Paris time), oldest first.
+    const dayKey = (t: number) => new Date(t).toLocaleDateString("sv-SE", { timeZone: "Europe/Paris" });
+    const days: DayCount[] = Array.from({ length: 14 }, (_, i) => {
+      const t = now - (13 - i) * 86_400_000;
+      const key = dayKey(t);
+      const list = state.declarations.filter((d) => dayKey(new Date(d.createdAt).getTime()) === key);
+      return {
+        key,
+        label: new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "numeric", timeZone: "Europe/Paris" }),
+        long: new Date(t).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" }),
+        perdu: list.filter((d) => d.kind === "perdu").length,
+        trouve: list.filter((d) => d.kind === "trouve").length,
+        today: i === 13,
+      };
+    });
+    const statusCounts = {
+      stock: state.objects.filter((o) => o.status === "en_stock").length,
+      donner: state.objects.filter((o) => o.status === "a_donner").length,
+      rendus: state.objects.filter((o) => o.status === "restitue").length,
+    };
+    return { inStock, overdue, stale, matches, ages, returned, kiosksOnline, retention, days, statusCounts };
   }, [state, now]);
 
   const todo = [
@@ -96,6 +118,15 @@ export default function DashboardPage() {
           </ul>
         )}
       </Panel>
+
+      <div className="mb-6 grid grid-cols-[1.45fr_1fr] gap-6">
+        <Panel className="p-6">
+          <DeclarationsChart days={stats.days} />
+        </Panel>
+        <Panel className="p-6">
+          <StatusDonut counts={stats.statusCounts} />
+        </Panel>
+      </div>
 
       <div className="grid grid-cols-[1.35fr_1fr] gap-6">
         <Panel>

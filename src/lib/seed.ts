@@ -1,4 +1,4 @@
-import type { Declaration, Kiosk, LogEntry, Restitution, State, StaffMember, StoredObject } from "./types";
+import type { CategoryId, Declaration, Kiosk, LogEntry, Restitution, State, StaffMember, StoredObject } from "./types";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -56,8 +56,51 @@ export function createSeed(now = Date.now()): State {
     decl({ id: "d9", ref: "DEC-2070", kind: "perdu", nom: "Girard", prenom: "Zoé", classe: "Terminale L", telephone: "07 12 34 56 78", objectName: "Casque audio", category: "autre", description: "Casque blanc, coussinets noirs.", location: "CDI", kioskId: "k2", createdAt: ago(9 * DAY), status: "cloturee", objectId: "o16" }),
   ];
 
+  // Older, already-handled declarations so the charts have a real two-week history.
+  const NAMES: [string, string, string][] = [
+    ["Leroy", "Manon", "2nde A"], ["Garcia", "Ethan", "1ère B"], ["Fournier", "Inès", "Terminale S"], ["Mercier", "Lucas", "2nde C"],
+    ["Blanc", "Sarah", "1ère STI2D"], ["Guerin", "Nathan", "Terminale L"], ["Muller", "Clara", "2nde B"], ["Faure", "Adam", "1ère L"],
+  ];
+  const THINGS: [string, CategoryId, string][] = [
+    ["Trousse bleue", "scolaire", "Zip noir, prénom au marqueur."], ["Sweat noir", "vetement", "Capuche, logo blanc."], ["Clés de casier", "cles", "Deux clés sur un anneau."],
+    ["Sac de sport", "sac", "Grand sac gris, bandes rouges."], ["Écouteurs filaires", "autre", "Câble blanc emmêlé."], ["Téléphone", "telephone", "Coque transparente."],
+    ["Carnet de correspondance", "scolaire", "Couverture verte."], ["Veste en jean", "vetement", "Boutons dorés."],
+  ];
+  const PLACES = ["Cantine", "CDI", "Gymnase", "Cour", "Salle de cours", "Couloir bâtiment B"];
+  const perDay = [1, 3, 2, 4, 1, 0, 3, 5, 2, 3, 1, 4, 2, 3]; // extra declarations, days ago 0 → 13
+  let extra = 0;
+  perDay.forEach((count, daysAgo) => {
+    for (let j = 0; j < count; j++) {
+      const [nom, prenom, classe] = NAMES[(extra + j) % NAMES.length];
+      const [objectName, category, description] = THINGS[(extra * 3 + j) % THINGS.length];
+      declarations.push(
+        decl({
+          id: `dx${extra}`, ref: `DEC-${2000 + extra}`, kind: extra % 3 === 0 ? "trouve" : "perdu", nom, prenom, classe, telephone: "",
+          objectName, category, description, location: PLACES[(extra + j) % PLACES.length], kioskId: kiosks[extra % kiosks.length].id,
+          createdAt: ago(daysAgo * DAY + (j + 2) * HOUR + (extra % 4) * 7 * MIN), status: "cloturee",
+        }),
+      );
+      extra++;
+    }
+  });
+
+  // A few more objects already given back, so "rendus" is not the smallest slice by a mile.
+  const returned: [string, string, CategoryId, number, string, string][] = [
+    ["OBJ-1034", "Doudoune noire", "vetement", 4, "Lina", "Moreau"],
+    ["OBJ-1033", "Clé USB bleue", "autre", 6, "Yanis", "Perrin"],
+    ["OBJ-1032", "Gourde rose", "autre", 11, "Jade", "Colin"],
+    ["OBJ-1031", "Agenda violet", "scolaire", 13, "Tom", "Andre"],
+  ];
+  returned.forEach(([ref, name, category, daysAgo], i) => {
+    objects.push({ id: `ox${i}`, ref, name, category, description: "", foundAt: "Couloir bâtiment B", foundOn: day(daysAgo + 1), depositedAt: ago((daysAgo + 1) * DAY), storage: "Casier 3", status: "restitue", restitutionId: `rx${i}` });
+  });
+
   const restitutions: Restitution[] = [
     { id: "r1", ref: "RST-0212", objectId: "o16", objectRef: "OBJ-1036", objectName: "Casque audio blanc", nom: "Girard", prenom: "Zoé", classe: "Terminale L", idChecked: true, note: "A décrit le casque et son étui.", doneAt: ago(7 * DAY), doneBy: "Yanis Benali", declarationId: "d9" },
+    ...returned.map(([ref, name, , daysAgo, prenom, nom], i): Restitution => ({
+      id: `rx${i}`, ref: `RST-${String(207 + i).padStart(4, "0")}`, objectId: `ox${i}`, objectRef: ref, objectName: name, nom, prenom, classe: "2nde B",
+      idChecked: true, note: "", doneAt: ago(daysAgo * DAY), doneBy: "Sophie Lambert",
+    })),
     { id: "r2", ref: "RST-0211", objectId: "o17", objectRef: "OBJ-1035", objectName: "Carte étudiante", nom: "Dupont", prenom: "Théo", classe: "1ère B", idChecked: true, note: "", doneAt: ago(9 * DAY), doneBy: "Sophie Lambert" },
   ];
 
