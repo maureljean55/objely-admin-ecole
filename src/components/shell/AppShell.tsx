@@ -11,7 +11,7 @@ import { findMatches } from "@/lib/matching";
 import { checkSession, signOut, type Session } from "@/lib/auth";
 import { loadStore, resetDemo, switchUser, useStoreState } from "@/lib/store";
 import { initials } from "@/lib/format";
-import { ROLES, type State } from "@/lib/types";
+import { ROLES, type StaffMember, type State } from "@/lib/types";
 
 const DataContext = createContext<State | null>(null);
 
@@ -22,8 +22,18 @@ export function useData(): State {
   return state;
 }
 
-export function useCurrentUser() {
+const SessionContext = createContext<{ session: Session | null; refresh: () => Promise<void> }>({ session: null, refresh: async () => {} });
+
+/** Who is signed in, and a way to re-read the session after it changed (e.g. the password was updated). */
+export const useSession = () => useContext(SessionContext);
+
+export function useCurrentUser(): StaffMember {
   const { staff, currentUserId } = useData();
+  const { session } = useSession();
+  // A real account is exactly who it says it is; the demo "Voir comme" only exists in demo mode.
+  if (session?.mode === "supabase") {
+    return { id: "session", name: session.name ?? session.email, email: session.email, role: session.role ?? "lecture", active: true, createdAt: "" };
+  }
   return staff.find((m) => m.id === currentUserId) ?? staff[0];
 }
 
@@ -53,6 +63,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [router, pathname]);
 
+  const refresh = async () => setSession(await checkSession());
+
   // In demo mode the signed-in e-mail decides which demo staff member you are.
   // Applied once per sign-in, so the "Voir comme" demo menu can still switch afterwards.
   const appliedFor = useRef<string | null>(null);
@@ -74,20 +86,39 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={state}>
-      <ToastProvider>
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar />
-          <main className="min-w-0 flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-[1240px] px-10 py-8">{children}</div>
-          </main>
-        </div>
-      </ToastProvider>
+      <SessionContext.Provider value={{ session, refresh }}>
+        <ToastProvider>
+          <div className="flex h-screen overflow-hidden">
+            <Sidebar />
+            <main className="min-w-0 flex-1 overflow-y-auto">
+              {session.mustChangePassword && pathname !== "/parametres" && <PasswordBanner />}
+              <div className="mx-auto w-full max-w-[1240px] px-10 py-8">{children}</div>
+            </main>
+          </div>
+        </ToastProvider>
+      </SessionContext.Provider>
     </DataContext.Provider>
+  );
+}
+
+// Shown on every page until the provisional password has been replaced.
+function PasswordBanner() {
+  return (
+    <div role="alert" className="sticky top-0 z-30 flex items-center gap-4 border-b border-warn/30 bg-warn-tint px-10 py-3 text-warn">
+      <Icon name="lock" size={22} fill />
+      <p className="flex-1 text-body">
+        <strong className="font-semibold">Veuillez changer votre mot de passe.</strong> Vous utilisez le mot de passe provisoire reçu à l&apos;inscription : choisissez-en un que vous seul connaissez.
+      </p>
+      <Link href="/parametres#mot-de-passe" className="flex h-9 shrink-0 items-center rounded-field bg-ink px-4 text-small font-semibold text-white hover:brightness-125">
+        Changer mon mot de passe
+      </Link>
+    </div>
   );
 }
 
 function Sidebar() {
   const state = useData();
+  const { session } = useSession();
   const pathname = usePathname();
 
   const counts = useMemo(
@@ -133,7 +164,7 @@ function Sidebar() {
 
       <div className="mx-4 mb-2 rounded-field bg-white/8 px-3 py-2.5">
         <p className="tag !text-white/50">Établissement</p>
-        <p className="truncate text-body font-semibold">{state.settings.schoolName}</p>
+        <p className="truncate text-body font-semibold">{session?.organizationName ?? state.settings.schoolName}</p>
       </div>
 
       <nav aria-label="Navigation principale" className="flex-1 overflow-y-auto px-3 py-2">
@@ -197,14 +228,16 @@ function SignOutLink() {
 function UserMenu() {
   const state = useData();
   const user = useCurrentUser();
+  const { session } = useSession();
+  const real = session?.mode === "supabase";
   const [open, setOpen] = useState(false);
 
   return (
     <div className="relative border-t border-white/10 p-3">
       {open && (
         <div className="absolute inset-x-3 bottom-[76px] z-20 rounded-card bg-white p-2 text-ink shadow-pop">
-          <p className="tag px-2 pb-1 pt-1">Voir comme (démo)</p>
-          {state.staff.filter((m) => m.active).map((m) => (
+          {!real && <p className="tag px-2 pb-1 pt-1">Voir comme (démo)</p>}
+          {!real && state.staff.filter((m) => m.active).map((m) => (
             <button
               key={m.id}
               type="button"
@@ -218,7 +251,7 @@ function UserMenu() {
               <span className="text-mute">{ROLES[m.role].label}</span>
             </button>
           ))}
-          <div className="my-1 border-t border-line" />
+          {!real && <div className="my-1 border-t border-line" />}
           <button type="button" onClick={() => { resetDemo(); setOpen(false); }} className="flex w-full items-center gap-2 rounded-field px-2 py-1.5 text-left text-small text-slate hover:bg-canvas">
             <Icon name="restart_alt" size={16} />
             Réinitialiser les données de démo
@@ -238,7 +271,7 @@ function UserMenu() {
         </span>
         <Icon name="unfold_more" size={18} className="text-white/60" />
       </button>
-      <p className="px-2 pt-2 text-tag text-white/40">Mode démonstration · données enregistrées dans ce navigateur</p>
+      <p className="px-2 pt-2 text-tag text-white/40">{real ? "Données de démonstration : la base de données sera reliée prochainement" : "Mode démonstration · données enregistrées dans ce navigateur"}</p>
     </div>
   );
 }

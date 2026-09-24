@@ -58,7 +58,8 @@ export function LoginForm() {
     setBusy(true);
     const result = await signIn(email, password);
     if (result.ok) {
-      router.replace(next);
+      // A provisional password must be replaced: go straight to where that is done.
+      router.replace(result.mustChangePassword ? "/parametres#mot-de-passe" : next);
       return;
     }
     setBusy(false);

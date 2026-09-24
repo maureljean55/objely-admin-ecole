@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { SelectField, TextField } from "@/components/ui/Fields";
 import { PageHeader, Panel } from "@/components/ui/Page";
 import { useToast } from "@/components/ui/Toast";
+import { PasswordSection } from "@/components/PasswordSection";
 import { can } from "@/lib/permissions";
 import { resetDemo, saveSettings } from "@/lib/store";
 import { SCHOOL_TYPES, type Settings } from "@/lib/types";
@@ -36,6 +37,9 @@ export default function ParametresPage() {
   return (
     <>
       <PageHeader title="Paramètres" description="Les informations et les règles de votre établissement." />
+      <div className="mb-6">
+        <PasswordSection />
+      </div>
       {!allowed && <p className="mb-4 rounded-field bg-warn-tint px-4 py-3 text-body text-warn">Seuls les administrateurs peuvent modifier les paramètres.</p>}
       <form onSubmit={submit} noValidate className="flex flex-col gap-6">
         <Panel className="p-6">

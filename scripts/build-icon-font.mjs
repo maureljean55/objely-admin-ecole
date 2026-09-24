@@ -25,7 +25,7 @@ for await (const file of walk(SRC)) {
   for (const re of PATTERNS) for (const m of text.matchAll(re)) names.add(m[1]);
 }
 // Names written inside ternaries can't be found by the patterns above; list them here.
-for (const extra of ["person", "person_off", "visibility", "visibility_off"]) names.add(extra);
+for (const extra of ["person", "person_off", "visibility", "visibility_off", "radio_button_unchecked", "check_circle"]) names.add(extra);
 names.delete("all");
 // The alphabetical order is required by the icon_names parameter.
 const list = [...names].sort();
