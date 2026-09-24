@@ -41,6 +41,12 @@ Ce qui n'est pas branché :
   de la borne » montre ce que ça donnera). L'état « en ligne » et le code d'appairage sont simulés.
 - **Photos** : redimensionnées et gardées dans le navigateur.
 
+## Base de données
+
+Le schéma existe déjà sur le projet Supabase **objely-ecole** (`jmmqgvtucavtvxwukgpw`) : voir
+`supabase/migrations/20260924100000_school_schema.sql` dans le dépôt `objely-ecole` (la borne).
+Ce projet-ci n'y est pas encore connecté : il lui faut l'URL du projet et sa clé publishable.
+
 ## Brancher Supabase
 
 Toutes les écritures passent par les fonctions de `src/lib/store.ts`. Pour passer en base :
