@@ -22,7 +22,7 @@ Puis ouvrir http://localhost:3000 (la page `/login` mène à la démo).
 | Déclarations | Perdus / trouvés reçus des bornes ; panneau de détail, clôture, enregistrement d'un objet trouvé |
 | Correspondances | Objets du stock qui ressemblent à une perte déclarée (suggestions à confirmer) |
 | Restitutions | Registre des objets rendus, avec vérification d'identité ; export CSV |
-| Bornes | Tablettes de l'établissement, état, ajout avec code d'appairage |
+| Bornes | Tablettes de l'établissement, état, ajout avec code d'appairage `#XXXXXX`, historique de tous les codes émis |
 | Personnel | Comptes et rôles (Administrateur, Vie scolaire, Lecture seule) |
 | Paramètres | Établissement, durée de conservation, réglages des bornes |
 | Journal d'activité | Qui a fait quoi, et quand |

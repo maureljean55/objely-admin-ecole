@@ -110,6 +110,20 @@ export type Kiosk = {
   pairedAt?: string;
 };
 
+/** One pairing code ever issued, kept after use. */
+export type PairingCodeRecord = {
+  id: string;
+  code: string;
+  /** Name of the borne when the code was issued (the borne may have been deleted since). */
+  kioskName: string;
+  createdAt: string;
+  createdBy: string | null;
+  expiresAt: string;
+  usedAt: string | null;
+  /** Replaced by a newer code, or cancelled because the borne was deleted before it was used. */
+  replacedAt: string | null;
+};
+
 export type Settings = {
   schoolName: string;
   schoolType: "ecole" | "college" | "lycee" | "universite";
@@ -147,6 +161,7 @@ export type State = {
   restitutions: Restitution[];
   staff: StaffMember[];
   kiosks: Kiosk[];
+  pairingCodes: PairingCodeRecord[];
   settings: Settings;
   log: LogEntry[];
   /** The establishment this data belongs to. */

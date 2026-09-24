@@ -9,10 +9,10 @@ import { Dialog } from "@/components/ui/Dialog";
 import { TextField } from "@/components/ui/Fields";
 import { EmptyState, PageHeader, Panel } from "@/components/ui/Page";
 import { useToast } from "@/components/ui/Toast";
-import { relativeTime } from "@/lib/format";
+import { formatDateTime, relativeTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { createKiosk, deleteKiosk, regeneratePairingCode, updateKiosk } from "@/lib/store";
-import type { Kiosk } from "@/lib/types";
+import type { Kiosk, PairingCodeRecord } from "@/lib/types";
 
 const ONLINE_WINDOW = 10 * 60_000;
 
@@ -50,6 +50,13 @@ function PairingCode({ code, expiresAt }: { code: string; expiresAt?: string }) 
   );
 }
 
+function CodeStatus({ code, now }: { code: PairingCodeRecord; now: number }) {
+  if (code.usedAt) return <Badge tone="ok">Utilisé le {formatDateTime(code.usedAt)}</Badge>;
+  if (code.replacedAt) return <Badge>Remplacé</Badge>;
+  if (new Date(code.expiresAt).getTime() < now) return <Badge tone="danger">Expiré</Badge>;
+  return <Badge tone="blue">Actif jusqu&apos;au {formatDateTime(code.expiresAt)}</Badge>;
+}
+
 function KioskStatus({ kiosk, now }: { kiosk: Kiosk; now: number }) {
   if (!kiosk.pairedAt) {
     const expired = kiosk.pairingExpiresAt ? new Date(kiosk.pairingExpiresAt).getTime() < now : false;
@@ -60,7 +67,7 @@ function KioskStatus({ kiosk, now }: { kiosk: Kiosk; now: number }) {
 }
 
 export default function BornesPage() {
-  const { kiosks } = useData();
+  const { kiosks, pairingCodes } = useData();
   const now = useNow();
   const user = useCurrentUser();
   const toast = useToast();
@@ -150,6 +157,39 @@ export default function BornesPage() {
           ))}
         </div>
       )}
+      <section className="mt-8">
+        <h2 className="text-h2 text-ink">Historique des codes</h2>
+        <p className="mb-3 mt-0.5 text-small text-mute">Tous les codes d&apos;appairage émis, conservés après leur utilisation.</p>
+        <Panel>
+          {pairingCodes.length === 0 ? (
+            <EmptyState title="Aucun code pour le moment" text="Chaque fois que vous ajoutez une borne ou demandez un nouveau code, il est enregistré ici." />
+          ) : (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-line text-small text-mute">
+                  <th className="px-6 py-2.5 font-semibold">Code</th>
+                  <th className="px-3 py-2.5 font-semibold">Borne</th>
+                  <th className="px-3 py-2.5 font-semibold">Créé le</th>
+                  <th className="px-3 py-2.5 font-semibold">Par</th>
+                  <th className="px-6 py-2.5 font-semibold">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pairingCodes.map((c) => (
+                  <tr key={c.id} className="border-b border-line last:border-0">
+                    <td className="px-6 py-3 font-mono text-body font-semibold text-ink">{formatCode(c.code)}</td>
+                    <td className="px-3 py-3 text-ink">{c.kioskName}</td>
+                    <td className="px-3 py-3 text-slate">{formatDateTime(c.createdAt)}</td>
+                    <td className="px-3 py-3 text-slate">{c.createdBy ?? "—"}</td>
+                    <td className="px-6 py-3"><CodeStatus code={c} now={now} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+      </section>
+
       <p className="mt-4 text-small text-mute">Une borne est « en ligne » si elle a donné signe de vie dans les 10 dernières minutes.</p>
 
       {editing && (

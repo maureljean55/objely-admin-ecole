@@ -10,6 +10,7 @@ import type {
   DeclarationStatus,
   Kiosk,
   LogEntry,
+  PairingCodeRecord,
   Restitution,
   Settings,
   StaffMember,
@@ -85,6 +86,11 @@ const toKiosk = (r: KioskRow): Kiosk => ({
   pairingCode: r.pairing_code ?? undefined, pairingExpiresAt: r.pairing_expires_at ?? undefined, pairedAt: r.paired_at ?? undefined,
 });
 
+type CodeRow = { id: string; code: string; kiosk_name: string; created_at: string; created_by_name: string | null; expires_at: string; used_at: string | null; replaced_at: string | null };
+const toCode = (r: CodeRow): PairingCodeRecord => ({
+  id: r.id, code: r.code, kioskName: r.kiosk_name, createdAt: r.created_at, createdBy: r.created_by_name, expiresAt: r.expires_at, usedAt: r.used_at, replacedAt: r.replaced_at,
+});
+
 type OrgRow = { id: string; name: string; type: Settings["schoolType"]; address: string | null; phone: string | null; contact_email: string | null; retention_days: number; idle_seconds: number; help_desk: string | null };
 const toSettings = (r: OrgRow): Settings => ({
   schoolName: r.name, schoolType: r.type, address: r.address ?? "", phone: r.phone ?? "", email: r.contact_email ?? "",
@@ -126,6 +132,11 @@ async function fetchers() {
       const { data, error } = await db.from("kiosks").select("id, name, location, version, pairing_code, pairing_expires_at, paired_at, last_seen_at, created_at").order("created_at").returns<KioskRow[]>();
       if (error) throw error;
       return data.map(toKiosk);
+    },
+    pairingCodes: async () => {
+      const { data, error } = await db.from("kiosk_pairing_codes").select("id, code, kiosk_name, created_at, created_by_name, expires_at, used_at, replaced_at").order("created_at", { ascending: false }).limit(200).returns<CodeRow[]>();
+      if (error) throw error;
+      return data.map(toCode);
     },
     settings: async () => {
       const { data, error } = await db.from("organizations").select("id, name, type, address, phone, contact_email, retention_days, idle_seconds, help_desk").eq("id", orgId!).single<OrgRow>();
@@ -170,11 +181,11 @@ export function startStore(organizationId: string): () => void {
   (async () => {
     try {
       const f = await fetchers();
-      const [objects, declarations, restitutions, staff, kiosks, settings, log] = await Promise.all([
-        f.objects(), f.declarations(), f.restitutions(), f.staff(), f.kiosks(), f.settings(), f.log(),
+      const [objects, declarations, restitutions, staff, kiosks, pairingCodes, settings, log] = await Promise.all([
+        f.objects(), f.declarations(), f.restitutions(), f.staff(), f.kiosks(), f.pairingCodes(), f.settings(), f.log(),
       ]);
       if (stopped) return;
-      state = { objects, declarations, restitutions, staff, kiosks, settings, log, organizationId };
+      state = { objects, declarations, restitutions, staff, kiosks, pairingCodes, settings, log, organizationId };
       emit();
     } catch (error) {
       if (stopped) return;
@@ -192,9 +203,9 @@ export function startStore(organizationId: string): () => void {
     .subscribe();
 
   // Other people work at the same time, and the bornes report in: stay current.
-  const onVisible = () => document.visibilityState === "visible" && void refresh("objects", "declarations", "restitutions", "kiosks", "staff", "log");
+  const onVisible = () => document.visibilityState === "visible" && void refresh("objects", "declarations", "restitutions", "kiosks", "pairingCodes", "staff", "log");
   document.addEventListener("visibilitychange", onVisible);
-  const interval = setInterval(() => void refresh("kiosks"), 60_000);
+  const interval = setInterval(() => void refresh("kiosks", "pairingCodes"), 60_000);
 
   return () => {
     stopped = true;
@@ -378,7 +389,7 @@ export async function createKiosk(input: { name: string; location: string }): Pr
     .select("id, name, location, version, pairing_code, pairing_expires_at, paired_at, last_seen_at, created_at")
     .single<KioskRow>();
   if (error) return fail(error);
-  await refresh("kiosks", "log");
+  await refresh("kiosks", "pairingCodes", "log");
   return { ok: true, kiosk: toKiosk(data) };
 }
 
@@ -392,14 +403,14 @@ export async function updateKiosk(id: string, patch: { name: string; location: s
 export async function deleteKiosk(id: string): Promise<Result> {
   const { error } = await getSupabase()!.from("kiosks").delete().eq("id", id);
   if (error) return fail(error);
-  await refresh("kiosks", "declarations", "log");
+  await refresh("kiosks", "pairingCodes", "declarations", "log");
   return { ok: true };
 }
 
 export async function regeneratePairingCode(id: string): Promise<Result<{ code: string }>> {
   const { data, error } = await getSupabase()!.rpc("regenerate_kiosk_pairing_code", { p_kiosk_id: id });
   if (error) return fail(error);
-  await refresh("kiosks");
+  await refresh("kiosks", "pairingCodes");
   return { ok: true, code: data as string };
 }
 
