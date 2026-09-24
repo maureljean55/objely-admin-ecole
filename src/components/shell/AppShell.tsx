@@ -68,6 +68,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const refresh = async () => setSession(await checkSession());
 
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (state) return;
+    const t = setTimeout(() => setSlow(true), 15_000);
+    return () => clearTimeout(t);
+  }, [state]);
+
   if (!session || !state) {
     return (
       <div className="flex h-screen">
@@ -78,6 +85,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="text-h2 text-danger">Impossible de charger vos données</p>
               <p className="mt-2 text-body text-ink">{storeError}</p>
               <button type="button" onClick={() => window.location.reload()} className="mt-4 h-10 rounded-field bg-ink px-5 font-semibold text-white">Réessayer</button>
+            </div>
+          ) : slow ? (
+            <div role="alert" className="max-w-md rounded-card border border-warn/30 bg-warn-tint p-6 text-center">
+              <p className="text-h2 text-warn">Le chargement est plus long que prévu</p>
+              <p className="mt-2 text-body text-ink">Vérifiez votre connexion internet. Si cela continue, déconnectez-vous puis reconnectez-vous.</p>
+              <div className="mt-4 flex justify-center gap-2">
+                <button type="button" onClick={() => window.location.reload()} className="h-10 rounded-field bg-ink px-5 font-semibold text-white">Réessayer</button>
+                <button type="button" onClick={async () => { await signOut(); router.replace("/login"); }} className="h-10 rounded-field border border-line-strong bg-white px-5 font-semibold text-ink">Se déconnecter</button>
+              </div>
             </div>
           ) : (
             <p className="text-slate">Chargement de vos données…</p>

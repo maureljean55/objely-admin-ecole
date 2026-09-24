@@ -53,6 +53,23 @@ function store(session: Session | null) {
   }
 }
 
+
+type Identity = { name: string; role: StaffRole; organizationId: string; organizationName?: string };
+
+/** Ties the signed-in account to the membership an administrator created for its e-mail, and reads who and where. */
+async function loadIdentity(supabase: SupabaseClient): Promise<Identity | null> {
+  const { data: claims, error } = await supabase.rpc("claim_membership");
+  if (error) throw error;
+  const claim = Array.isArray(claims) ? (claims[0] as { organization_id: string; member_id: string; role: StaffRole } | undefined) : undefined;
+  if (!claim) return null;
+
+  const [{ data: member }, { data: organization }] = await Promise.all([
+    supabase.from("members").select("full_name").eq("id", claim.member_id).maybeSingle<{ full_name: string }>(),
+    supabase.from("organizations").select("name").eq("id", claim.organization_id).maybeSingle<{ name: string }>(),
+  ]);
+  return { name: member?.full_name ?? "", role: claim.role, organizationId: claim.organization_id, organizationName: organization?.name };
+}
+
 /** The signed-in session, or null. For real accounts, checks that the token is still valid and reads the live flag. */
 export async function checkSession(): Promise<Session | null> {
   const stored = readStored();
@@ -66,7 +83,19 @@ export async function checkSession(): Promise<Session | null> {
   }
   // The flag lives in the account itself, so it follows the person, not the browser.
   const mustChangePassword = data.session.user.user_metadata?.must_change_password === true;
-  const session = { ...stored, mustChangePassword };
+  let session: Session = { ...stored, mustChangePassword };
+
+  // A session saved by an older version lacks the establishment: rebuild it rather than leave the app waiting forever.
+  if (!session.organizationId || !session.role) {
+    try {
+      const identity = await loadIdentity(supabase);
+      if (!identity) throw new Error("no_membership");
+      session = { ...session, ...identity };
+    } catch {
+      await signOut();
+      return null;
+    }
+  }
   store(session);
   return session;
 }
@@ -94,30 +123,14 @@ export async function signIn(email: string, password: string): Promise<SignInRes
     const { data: auth, error } = await supabase.auth.signInWithPassword({ email: address, password });
     if (error) return { ok: false, reason: error.status === 429 ? "rate_limited" : "invalid" };
 
-    // Ties this account to the membership an administrator created for its e-mail.
-    const { data: claims, error: claimError } = await supabase.rpc("claim_membership");
-    if (claimError) throw claimError;
-    const claim = Array.isArray(claims) ? (claims[0] as { organization_id: string; member_id: string; role: StaffRole } | undefined) : undefined;
-    if (!claim) {
+    const identity = await loadIdentity(supabase);
+    if (!identity) {
       await supabase.auth.signOut();
       return { ok: false, reason: "no_membership" };
     }
 
-    const [{ data: member }, { data: organization }] = await Promise.all([
-      supabase.from("members").select("full_name").eq("id", claim.member_id).maybeSingle<{ full_name: string }>(),
-      supabase.from("organizations").select("name").eq("id", claim.organization_id).maybeSingle<{ name: string }>(),
-    ]);
-
     const mustChangePassword = auth.user.user_metadata?.must_change_password === true;
-    store({
-      mode: "supabase",
-      email: address,
-      name: member?.full_name ?? address,
-      role: claim.role,
-      organizationId: claim.organization_id,
-      organizationName: organization?.name,
-      mustChangePassword,
-    });
+    store({ mode: "supabase", email: address, ...identity, mustChangePassword });
     return { ok: true, mustChangePassword };
   } catch {
     return { ok: false, reason: "network" };
