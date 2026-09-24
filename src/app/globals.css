@@ -1,26 +1,140 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Material Symbols, self-hosted and subset (scripts/build-icon-font.mjs). */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("/fonts/material-symbols-outlined.woff2") format("woff2");
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-body), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Brand, from the logo's two rings: blue = lost, violet = found. */
+  --color-blue: #1f63e0;
+  --color-blue-tint: #e6eefc;
+  --color-purple: #6d4be0;
+  --color-purple-tint: #eeeafc;
+
+  --color-ink: #101a36;
+  --color-ink-2: #1b2a50;
+  --color-slate: #525c72;
+  --color-mute: #7a8499;
+  --color-canvas: #f3f4f8;
+  --color-line: #dfe3ec;
+  --color-line-strong: #b9c0d0;
+
+  --color-ok: #1f7a3e;
+  --color-ok-tint: #e5f4ea;
+  --color-warn: #8a5300;
+  --color-warn-tint: #fdf1d9;
+  --color-danger: #b3261e;
+  --color-danger-tint: #fcecea;
+
+  --text-title: 30px;
+  --text-title--line-height: 34px;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 800;
+  --text-h2: 19px;
+  --text-h2--line-height: 24px;
+  --text-h2--letter-spacing: -0.01em;
+  --text-h2--font-weight: 700;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-tag: 12px;
+  --text-tag--line-height: 16px;
+  --text-tag--letter-spacing: 0.08em;
+
+  --radius-card: 12px;
+  --radius-field: 8px;
+
+  --shadow-panel: 0 1px 2px rgba(16, 26, 54, 0.05);
+  --shadow-pop: 0 24px 48px -12px rgba(16, 26, 54, 0.3);
+
+  --animate-rise: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 22px;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+  }
+  button,
+  a,
+  select,
+  summary {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(31, 99, 224, 0.35);
+  }
+  input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    display: none;
+  }
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: 400;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  flex-shrink: 0;
+  -webkit-font-feature-settings: "liga";
+  font-feature-settings: "liga";
+  font-variation-settings: "FILL" 0;
+}
+
+/* Small mono caption above a value, like the labels printed on the borne's ticket. */
+.tag {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-mute);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

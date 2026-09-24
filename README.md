@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Objely École · Administration
 
-## Getting Started
+L'espace de gestion des établissements scolaires pour Objely École : suivre les déclarations
+reçues sur les bornes, enregistrer et ranger les objets déposés à la vie scolaire, les rendre
+à leur propriétaire, gérer le personnel, les bornes et les règles de l'établissement.
 
-First, run the development server:
+## Démarrer
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Puis ouvrir http://localhost:3000 (la page `/login` mène à la démo).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Page | Rôle |
+|---|---|
+| Tableau de bord | « À traiter », registre du jour, ancienneté du stock |
+| Objets en stock | Liste, recherche, filtres, export CSV ; fiche, modification, « à donner », suppression |
+| Déclarations | Perdus / trouvés reçus des bornes ; panneau de détail, clôture, enregistrement d'un objet trouvé |
+| Correspondances | Objets du stock qui ressemblent à une perte déclarée (suggestions à confirmer) |
+| Restitutions | Registre des objets rendus, avec vérification d'identité ; export CSV |
+| Bornes | Tablettes de l'établissement, état, ajout avec code d'appairage |
+| Personnel | Comptes et rôles (Administrateur, Vie scolaire, Lecture seule) |
+| Paramètres | Établissement, durée de conservation, réglages des bornes |
+| Journal d'activité | Qui a fait quoi, et quand |
 
-## Learn More
+## État actuel : démonstration
 
-To learn more about Next.js, take a look at the following resources:
+Il n'y a **pas encore de base de données**. Toutes les données sont des données de démonstration,
+enregistrées dans le `localStorage` du navigateur (`src/lib/store.ts`, `src/lib/seed.ts`).
+Rien n'est partagé entre navigateurs, et « Réinitialiser les données de démo » (menu en bas à gauche,
+ou Paramètres) remet tout à zéro. Le menu « Voir comme » permet d'essayer les trois rôles.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Ce qui n'est pas branché :
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Connexion** : la page `/login` est une maquette, il n'y a pas d'authentification.
+- **Bornes** : elles n'envoient pas encore leurs déclarations ici (le bouton « Simuler une déclaration
+  de la borne » montre ce que ça donnera). L'état « en ligne » et le code d'appairage sont simulés.
+- **Photos** : redimensionnées et gardées dans le navigateur.
 
-## Deploy on Vercel
+## Brancher Supabase
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Toutes les écritures passent par les fonctions de `src/lib/store.ts`. Pour passer en base :
+remplacer ces fonctions (et `loadStore`) par des appels Supabase, créer les tables
+(objets, déclarations, restitutions, membres, bornes, paramètres, journal) avec des règles RLS
+par établissement, et brancher Supabase Auth sur `/login`. Les pages n'ont pas à changer.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Design
+
+Inter n'est pas utilisée : titres en Bricolage Grotesque, texte en Atkinson Hyperlegible, références en
+IBM Plex Mono. Le bleu (perdu) et le violet (trouvé) viennent des deux anneaux du logo. Les icônes sont
+Material Symbols, auto-hébergées et réduites : après en avoir ajouté une, lancer
+`node scripts/build-icon-font.mjs`.
