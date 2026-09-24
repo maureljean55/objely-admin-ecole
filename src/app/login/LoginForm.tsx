@@ -87,29 +87,77 @@ export function LoginForm() {
 
   return (
     <main className="grid min-h-screen lg:grid-cols-[minmax(0,1.2fr)_minmax(460px,0.8fr)]">
-      {/* Visual: the Objely splash. Decorative only. */}
+      {/* Graphic panel, decorative only: the logo's two rings, very large, and dossier tickets like the ones the borne prints. */}
       <aside
         aria-hidden="true"
         className="relative hidden overflow-hidden lg:block"
-        style={{ background: "linear-gradient(135deg, #0058bc 0%, #0070eb 35%, #7c6ff0 70%, #a19afd 100%)" }}
+        style={{ background: "linear-gradient(135deg, #0a4fb8 0%, #1f63e0 38%, #6d4be0 78%, #8d6cf3 100%)" }}
       >
+        {/* Two interlocked rings, cropped by the panel edge */}
+        <svg className="absolute -bottom-40 -right-48 w-[860px] opacity-100" viewBox="0 0 860 860" fill="none">
+          <circle cx="330" cy="330" r="250" stroke="rgba(255,255,255,0.13)" strokeWidth="64" />
+          <circle cx="560" cy="540" r="250" stroke="rgba(255,255,255,0.09)" strokeWidth="64" />
+          <path d="M470 150 A250 250 0 0 1 560 290" stroke="rgba(255,255,255,0.22)" strokeWidth="64" strokeLinecap="butt" />
+        </svg>
+        {/* faint reference grid, like a register */}
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px)", backgroundSize: "100% 44px" }}
+        />
+
         <div className="absolute left-14 top-14 z-10 max-w-[520px] text-white">
           <p className="font-display text-[26px] font-semibold leading-tight text-white/90">Objets perdus, objets retrouvés</p>
           <p className="mt-2 font-display text-[54px] font-extrabold leading-[1.02] tracking-tight">Votre vie scolaire, plus sereine.</p>
         </div>
 
-        <div className="absolute inset-0 flex items-center justify-center pt-28">
-          <div className="relative">
-            {/* soft rings behind the mascot */}
-            <span className="radar-ping absolute inset-0 rounded-[64px] border border-white/40" />
-            <span className="radar-ping absolute inset-0 rounded-[64px] border border-white/40" style={{ animationDelay: "1.5s" }} />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/illustrations/mascot-tile.png"
-              alt=""
-              draggable={false}
-              className="mascot-float relative w-[380px] rounded-[52px] shadow-[0_40px_80px_-20px_rgba(10,30,110,0.6)]"
-            />
+        {/* The life of an object, in order: this sequence is real */}
+        <ol className="absolute bottom-28 left-14 z-10 flex flex-col gap-3.5">
+          {[
+            ["01", "Déclaré sur la borne"],
+            ["02", "Rangé à la vie scolaire"],
+            ["03", "Rapproché de sa déclaration"],
+            ["04", "Rendu à son propriétaire"],
+          ].map(([n, label]) => (
+            <li key={n} className="flex items-baseline gap-4 text-white">
+              <span className="w-7 font-mono text-[15px] font-semibold text-white/60">{n}</span>
+              <span className="text-[19px] font-medium">{label}</span>
+            </li>
+          ))}
+        </ol>
+
+        {/* Tickets */}
+        <div className="absolute right-20 top-[350px] z-10 w-[300px]">
+          <div className="ticket-float-b absolute -top-[92px] left-10 w-[280px] rotate-[6deg] rounded-[10px] bg-white shadow-[0_30px_60px_-18px_rgba(10,20,80,0.55)]">
+            <div className="h-2.5 rounded-t-[10px] bg-[#8d6cf3]" />
+            <div className="px-5 pb-4 pt-4">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#7a8499]">Objet trouvé</p>
+              <p className="mt-1 font-mono text-[30px] font-semibold leading-none text-[#101a36]">OBJ-1047</p>
+              <p className="mt-3 text-[17px] font-semibold text-[#101a36]">Trousseau de clés</p>
+              <p className="text-[14px] text-[#525c72]">Rangé : Casier 1</p>
+            </div>
+          </div>
+
+          <div className="ticket-float-a relative w-[300px] -rotate-[5deg] rounded-[10px] bg-white shadow-[0_34px_70px_-18px_rgba(10,20,80,0.6)]">
+            <div className="h-2.5 rounded-t-[10px] bg-[#1f63e0]" />
+            <div className="px-6 pt-5">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#7a8499]">Dossier n°</p>
+              <p className="font-mono text-[40px] font-semibold leading-none tracking-tight text-[#101a36]">OBJ-1048</p>
+            </div>
+            <div className="mx-5 mt-4 border-t-2 border-dashed border-[#b9c0d0]" />
+            <div className="px-6 pb-3 pt-4">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#7a8499]">Objet</p>
+              <p className="text-[19px] font-semibold text-[#101a36]">Écouteurs sans fil noirs</p>
+              <p className="mt-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#7a8499]">Trouvé</p>
+              <p className="text-[17px] font-semibold text-[#101a36]">Cantine</p>
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#e5f4ea] px-3 py-1 text-[14px] font-semibold text-[#1f7a3e]">
+                <span className="text-[15px]">✓</span> Rendu à son propriétaire
+              </p>
+            </div>
+            <div className="flex h-9 items-stretch px-6 pb-4">
+              {[2, 1, 3, 1, 2, 2, 1, 3, 2, 1, 1, 3, 2, 1, 2, 3, 1, 2, 1, 1, 3, 2, 1, 2, 2, 1, 3, 1].map((w, i) => (
+                <span key={i} style={{ width: w * 2 }} className={i % 2 === 0 ? "bg-[#101a36]" : "bg-transparent"} />
+              ))}
+            </div>
           </div>
         </div>
 
