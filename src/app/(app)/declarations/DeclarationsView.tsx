@@ -61,6 +61,10 @@ export function DeclarationsView() {
   const kioskName = (id: string) => kiosks.find((k) => k.id === id)?.name ?? "Borne supprimée";
   const suggestions = open && open.kind === "perdu" && open.status !== "cloturee" ? findMatches([open], objects).slice(0, 3) : [];
   const linkedObject = open?.objectId ? objects.find((o) => o.id === open.objectId) : undefined;
+  const matchedDeclaration = open?.matchedDeclarationId ? declarations.find((x) => x.id === open.matchedDeclarationId) : undefined;
+  // A found object declared at a borne is linked to its stock object once deposited.
+  const matchedObject = matchedDeclaration?.objectId ? objects.find((o) => o.id === matchedDeclaration.objectId) : undefined;
+  const claimedAtKiosk = open && open.status !== "cloturee" && (matchedDeclaration || (open.kind === "perdu" && open.status === "correspondance" && linkedObject));
 
   const tab = (id: DeclarationKind | "all", label: string) => (
     <button
@@ -182,6 +186,33 @@ export function DeclarationsView() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img key={i} src={src} alt={`Photo ${i + 1} envoyée depuis la borne`} className="h-24 w-32 rounded-field border border-line object-cover" />
               ))}
+            </div>
+          )}
+
+          {claimedAtKiosk && (
+            <div className="mt-5 rounded-card border border-ok/30 bg-ok/10 p-4">
+              <p className="flex items-center gap-2 text-small font-semibold text-ok">
+                <Icon name="how_to_reg" size={18} />
+                {open.kind === "perdu" ? "L'élève a reconnu son objet sur la borne" : "La personne qui l'a trouvé a reconnu une déclaration de perte"}
+              </p>
+              <p className="mt-1 text-body text-ink">
+                {open.kind === "perdu" && linkedObject && <>Objet du stock : <strong>{linkedObject.ref} · {linkedObject.name}</strong>.</>}
+                {open.kind === "perdu" && !linkedObject && matchedDeclaration && (
+                  <>
+                    Objet trouvé déclaré <strong>{matchedDeclaration.ref}</strong> par {matchedDeclaration.prenom} {matchedDeclaration.nom} :{" "}
+                    {matchedObject ? <>déposé, <strong>{matchedObject.ref}</strong>.</> : "pas encore déposé à la vie scolaire."}
+                  </>
+                )}
+                {open.kind === "trouve" && matchedDeclaration && (
+                  <>
+                    Perte déclarée <strong>{matchedDeclaration.ref}</strong> par {matchedDeclaration.prenom} {matchedDeclaration.nom} ({matchedDeclaration.classe}).
+                  </>
+                )}
+              </p>
+              <p className="mt-1 text-small text-slate">Ce n&apos;est pas une preuve : vérifiez que l&apos;objet lui appartient avant de le rendre.</p>
+              {canWrite && open.kind === "perdu" && (linkedObject ?? matchedObject)?.status === "en_stock" && (
+                <Button size="sm" className="mt-3" onClick={() => setGiving({ object: (linkedObject ?? matchedObject)!, declaration: open })}>Rendre l&apos;objet</Button>
+              )}
             </div>
           )}
 

@@ -59,12 +59,13 @@ const toObject = (r: ObjectRow): StoredObject => ({
 type DeclarationRow = {
   id: string; ref: string; kind: Declaration["kind"]; nom: string; prenom: string; classe: string; telephone: string | null; object_name: string;
   category: CategoryId; description: string; location: string | null; kiosk_id: string | null; status: DeclarationStatus; object_id: string | null; created_at: string;
+  matched_declaration_id?: string | null;
 };
 const DECLARATION_COLUMNS = "id, ref, kind, nom, prenom, classe, telephone, object_name, category, description, location, kiosk_id, status, object_id, created_at";
 const toDeclaration = (r: DeclarationRow): Declaration => ({
   id: r.id, ref: r.ref, kind: r.kind, nom: r.nom, prenom: r.prenom, classe: r.classe, telephone: r.telephone ?? "", objectName: r.object_name,
   category: r.category, description: r.description, location: r.location ?? "", photos: [], kioskId: r.kiosk_id ?? "", createdAt: r.created_at,
-  status: r.status, objectId: r.object_id ?? undefined,
+  status: r.status, objectId: r.object_id ?? undefined, matchedDeclarationId: r.matched_declaration_id ?? undefined,
 });
 
 type RestitutionRow = {
@@ -114,9 +115,12 @@ async function fetchers() {
       return data.map(toObject);
     },
     declarations: async () => {
-      const { data, error } = await db.from("declarations").select(DECLARATION_COLUMNS).order("created_at", { ascending: false }).limit(LIMIT).returns<DeclarationRow[]>();
+      const list = (columns: string) => db.from("declarations").select(columns).order("created_at", { ascending: false }).limit(LIMIT).returns<DeclarationRow[]>();
+      let { data, error } = await list(`${DECLARATION_COLUMNS}, matched_declaration_id`);
+      // 42703: the instant-matching migration is not applied yet on this database.
+      if (error?.code === "42703") ({ data, error } = await list(DECLARATION_COLUMNS));
       if (error) throw error;
-      return data.map(toDeclaration);
+      return (data ?? []).map(toDeclaration);
     },
     restitutions: async () => {
       const { data, error } = await db.from("restitutions").select(RESTITUTION_COLUMNS).order("done_at", { ascending: false }).limit(LIMIT).returns<RestitutionRow[]>();

@@ -60,6 +60,8 @@ export type Declaration = {
   status: DeclarationStatus;
   /** Stock object this declaration was matched with or created. */
   objectId?: string;
+  /** Declaration of the other side (lost ↔ found) that the student recognised at the borne. */
+  matchedDeclarationId?: string;
 };
 
 export type Restitution = {
