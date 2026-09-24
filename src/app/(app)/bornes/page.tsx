@@ -16,6 +16,40 @@ import type { Kiosk } from "@/lib/types";
 
 const ONLINE_WINDOW = 10 * 60_000;
 
+/** "#A7K9Q2": the code is stored without the "#". */
+const formatCode = (code?: string) => (code ? `#${code}` : "");
+
+function PairingCode({ code, expiresAt }: { code: string; expiresAt?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="rounded-field bg-warn-tint px-3 py-2.5">
+      <p className="tag !text-warn">Code d&apos;appairage</p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <span className="select-all font-mono text-[28px] font-semibold leading-none tracking-[0.1em] text-ink">{formatCode(code)}</span>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={copied ? "check" : "content_copy"}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(formatCode(code));
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch {
+              // Clipboard blocked: the code is still selectable on screen.
+            }
+          }}
+        >
+          {copied ? "Copié" : "Copier"}
+        </Button>
+      </div>
+      <p className="mt-1.5 text-small text-warn">
+        À saisir sur la borne{expiresAt ? `, valable jusqu'au ${new Date(expiresAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}` : ""}.
+      </p>
+    </div>
+  );
+}
+
 function KioskStatus({ kiosk, now }: { kiosk: Kiosk; now: number }) {
   if (!kiosk.pairedAt) {
     const expired = kiosk.pairingExpiresAt ? new Date(kiosk.pairingExpiresAt).getTime() < now : false;
@@ -35,7 +69,6 @@ export default function BornesPage() {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<Kiosk | null>(null);
   const [deleting, setDeleting] = useState<Kiosk | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -55,7 +88,7 @@ export default function BornesPage() {
       const result = await createKiosk({ name: name.trim(), location: location.trim() });
       setBusy(false);
       if (!result.ok) return setError(result.error);
-      setCreated(result.kiosk);
+      toast(`Borne ajoutée : code ${formatCode(result.kiosk.pairingCode)}`);
     } else if (editing) {
       const result = await updateKiosk(editing.id, { name: name.trim(), location: location.trim() });
       setBusy(false);
@@ -99,7 +132,7 @@ export default function BornesPage() {
               </dl>
               {!k.pairedAt && (
                 new Date(k.pairingExpiresAt ?? 0).getTime() > now && k.pairingCode ? (
-                  <p className="rounded-field bg-warn-tint px-3 py-2 text-small text-warn">Code d&apos;appairage : <span className="font-mono font-semibold tracking-widest">{k.pairingCode}</span></p>
+                  <PairingCode code={k.pairingCode} expiresAt={k.pairingExpiresAt} />
                 ) : (
                   <div className="flex items-center justify-between gap-2 rounded-field bg-danger-tint px-3 py-2 text-small text-danger">
                     <span>Le code d&apos;appairage a expiré.</span>
@@ -132,13 +165,6 @@ export default function BornesPage() {
         </Dialog>
       )}
 
-      {created && (
-        <Dialog title="Borne ajoutée" onClose={() => setCreated(null)} footer={<Button onClick={() => setCreated(null)}>Terminé</Button>}>
-          <p className="text-body text-ink">Sur la tablette, ouvrez l&apos;application Objely École et saisissez ce code d&apos;appairage :</p>
-          <p className="my-4 rounded-card bg-canvas py-5 text-center font-mono text-[40px] font-semibold tracking-[0.3em] text-ink">{created.pairingCode}</p>
-          <p className="text-small text-mute">Ce code est valable 48 heures et ne sert qu&apos;une fois.</p>
-        </Dialog>
-      )}
 
       {deleting && (
         <Dialog
