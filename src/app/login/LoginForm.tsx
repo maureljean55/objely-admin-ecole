@@ -98,31 +98,18 @@ export function LoginForm() {
           <p className="mt-2 font-display text-[54px] font-extrabold leading-[1.02] tracking-tight">Votre vie scolaire, plus sereine.</p>
         </div>
 
-        <div className="absolute inset-0 flex items-center justify-center pt-24">
-          <div className="relative flex items-center justify-center" style={{ width: 460, height: 460 }}>
-            <span className="radar-ping absolute size-[160px] rounded-full border border-white/40" />
-            <span className="radar-ping absolute size-[160px] rounded-full border border-white/40" style={{ animationDelay: "1.5s" }} />
-            <div className="orbit-ring absolute inset-0">
-              {[
-                { src: "wallet", angle: 0 },
-                { src: "phone", angle: 90 },
-                { src: "keys", angle: 180 },
-                { src: "earbuds", angle: 270 },
-              ].map((o) => (
-                <div
-                  key={o.src}
-                  className="absolute left-1/2 top-1/2"
-                  style={{ width: 92, height: 92, margin: "-46px 0 0 -46px", transform: `rotate(${o.angle}deg) translate(200px) rotate(-${o.angle}deg)` }}
-                >
-                  <div className="orbit-item flex size-full items-center justify-center drop-shadow-[0_8px_16px_rgba(0,0,0,0.4)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/illustrations/splash/${o.src}.png`} alt="" draggable={false} className="max-h-full max-w-full object-contain" />
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="absolute inset-0 flex items-center justify-center pt-28">
+          <div className="relative">
+            {/* soft rings behind the mascot */}
+            <span className="radar-ping absolute inset-0 rounded-[64px] border border-white/40" />
+            <span className="radar-ping absolute inset-0 rounded-[64px] border border-white/40" style={{ animationDelay: "1.5s" }} />
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/illustrations/splash/magnifier.png" alt="" draggable={false} className="magnifier-pulse relative w-[210px]" />
+            <img
+              src="/illustrations/mascot-tile.png"
+              alt=""
+              draggable={false}
+              className="mascot-float relative w-[380px] rounded-[52px] shadow-[0_40px_80px_-20px_rgba(10,30,110,0.6)]"
+            />
           </div>
         </div>
 

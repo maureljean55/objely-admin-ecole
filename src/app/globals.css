@@ -140,18 +140,14 @@
 }
 
 
-/* Login visual: the Objely splash scene. Objects orbit the magnifier, each staying upright. */
-@keyframes orbit-spin { to { transform: rotate(360deg); } }
-@keyframes orbit-counter { to { transform: rotate(-360deg); } }
-@keyframes magnifier-pulse {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 14px rgba(147, 197, 253, 0.5)); }
-  50% { transform: scale(1.06); filter: drop-shadow(0 0 30px rgba(191, 219, 254, 0.9)); }
+/* Login visual: the Objely mascot floating gently, with soft rings behind it. */
+@keyframes mascot-float {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-12px) rotate(1.5deg); }
 }
 @keyframes radar-ping {
-  0% { transform: scale(0.55); opacity: 0.45; }
-  100% { transform: scale(1.9); opacity: 0; }
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(1.5); opacity: 0; }
 }
-.orbit-ring { animation: orbit-spin 24s linear infinite; }
-.orbit-item { animation: orbit-counter 24s linear infinite; }
-.magnifier-pulse { animation: magnifier-pulse 2.4s ease-in-out infinite; }
-.radar-ping { animation: radar-ping 3s cubic-bezier(0.2, 0.6, 0.4, 1) infinite; }
+.mascot-float { animation: mascot-float 5s ease-in-out infinite; }
+.radar-ping { animation: radar-ping 3.2s cubic-bezier(0.2, 0.6, 0.4, 1) infinite; }
