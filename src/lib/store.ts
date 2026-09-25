@@ -137,8 +137,9 @@ async function fetchers() {
       const columns = "id, name, location, version, pairing_code, pairing_expires_at, paired_at, last_seen_at, created_at";
       const list = (select: string) => db.from("kiosks").select(select).order("created_at").returns<KioskRow[]>();
       let { data, error } = await list(`${columns}, paused_at`);
-      // 42703: the kiosk-pause migration is not applied yet on this database.
-      if (error?.code === "42703") ({ data, error } = await list(columns));
+      // 42703: the kiosk-pause migration is not applied yet; 42501: the column is not readable yet (its grant comes in a
+      // later migration). Either way, load the bornes without it rather than failing the whole app.
+      if (error?.code === "42703" || error?.code === "42501") ({ data, error } = await list(columns));
       if (error) throw error;
       return (data ?? []).map(toKiosk);
     },
