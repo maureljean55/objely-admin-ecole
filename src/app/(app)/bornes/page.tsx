@@ -12,7 +12,7 @@ import { EmptyState, PageHeader, Panel } from "@/components/ui/Page";
 import { useToast } from "@/components/ui/Toast";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
-import { createKiosk, deleteKiosk, regeneratePairingCode, setPairingCode, updateKiosk } from "@/lib/store";
+import { createKiosk, deleteKiosk, regeneratePairingCode, setKioskPaused, setPairingCode, updateKiosk } from "@/lib/store";
 import type { Kiosk, PairingCodeRecord } from "@/lib/types";
 
 const ONLINE_WINDOW = 10 * 60_000;
@@ -60,6 +60,7 @@ function CodeStatus({ code }: { code: PairingCodeRecord }) {
 }
 
 function KioskStatus({ kiosk, now }: { kiosk: Kiosk; now: number }) {
+  if (kiosk.pausedAt) return <Badge tone="warn">Suspendue</Badge>;
   if (!kiosk.pairedAt) return <Badge tone="warn">En attente d&apos;appairage</Badge>;
   if (!kiosk.lastSeenAt) return <Badge tone="warn">Jamais vue</Badge>;
   return now - new Date(kiosk.lastSeenAt).getTime() < ONLINE_WINDOW ? <Badge tone="ok">En ligne</Badge> : <Badge tone="danger">Hors ligne</Badge>;
@@ -79,6 +80,7 @@ export default function BornesPage() {
   const [location, setLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Kiosk | null>(null);
+  const [pausing, setPausing] = useState<Kiosk | null>(null);
   const [codeFor, setCodeFor] = useState<Kiosk | null>(null);
   const [codeDraft, setCodeDraft] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -204,6 +206,11 @@ export default function BornesPage() {
                   {manage && (
                     <td className="px-6 py-3">
                       <div className="flex justify-end gap-1">
+                        {k.pausedAt ? (
+                          <Button size="sm" variant="secondary" icon="play_circle" onClick={() => setPausing(k)}>Activer</Button>
+                        ) : (
+                          <Button size="sm" variant="secondary" icon="pause_circle" onClick={() => setPausing(k)}>Suspendre</Button>
+                        )}
                         <IconButton icon="edit" aria-label={`Modifier ${k.name}`} title="Modifier la borne" onClick={() => openForm(k)} />
                         <IconButton icon="delete" tone="danger" aria-label={`Supprimer ${k.name}`} title="Supprimer la borne" onClick={() => setDeleting(k)} />
                       </div>
@@ -296,6 +303,36 @@ export default function BornesPage() {
               L&apos;ancien code cessera de fonctionner. La borne déjà appairée continue de marcher : le nouveau code ne sert qu&apos;à l&apos;appairer.
             </p>
           </form>
+        </Dialog>
+      )}
+
+      {pausing && (
+        <Dialog
+          title={pausing.pausedAt ? `Activer ${pausing.name} ?` : `Suspendre ${pausing.name} ?`}
+          onClose={() => setPausing(null)}
+          footer={
+            <>
+              <Button variant="quiet" onClick={() => setPausing(null)} disabled={busy}>Annuler</Button>
+              <Button
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  const r = await setKioskPaused(pausing.id, !pausing.pausedAt);
+                  setBusy(false);
+                  toast(r.ok ? (pausing.pausedAt ? "Borne activée" : "Borne suspendue") : r.error);
+                  if (r.ok) setPausing(null);
+                }}
+              >
+                {busy ? "Enregistrement…" : pausing.pausedAt ? "Activer" : "Suspendre"}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-body text-ink">
+            {pausing.pausedAt
+              ? "La borne revient à l'accueil d'elle-même, en moins d'une minute. Élèves et personnel peuvent de nouveau déclarer, chercher et suivre un objet."
+              : "La borne affiche « Borne en pause » et n'accepte plus rien. Elle reste appairée et garde ses déclarations : vous pourrez l'activer à tout moment."}
+          </p>
         </Dialog>
       )}
 

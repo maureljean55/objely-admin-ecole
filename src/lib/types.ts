@@ -110,6 +110,8 @@ export type Kiosk = {
   pairingCode?: string;
   pairingExpiresAt?: string;
   pairedAt?: string;
+  /** Set while the establishment has paused this borne. */
+  pausedAt?: string;
 };
 
 /** One pairing code ever issued, kept after use. */

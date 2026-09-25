@@ -81,10 +81,11 @@ const toRestitution = (r: RestitutionRow): Restitution => ({
 type MemberRow = { id: string; email: string; full_name: string; role: StaffRole; active: boolean; last_seen_at: string | null; created_at: string };
 const toMember = (r: MemberRow): StaffMember => ({ id: r.id, email: r.email, name: r.full_name, role: r.role, active: r.active, createdAt: r.created_at, lastSeenAt: r.last_seen_at ?? undefined });
 
-type KioskRow = { id: string; name: string; location: string | null; version: string; pairing_code: string | null; pairing_expires_at: string | null; paired_at: string | null; last_seen_at: string | null; created_at: string };
+type KioskRow = { id: string; name: string; location: string | null; version: string; pairing_code: string | null; pairing_expires_at: string | null; paired_at: string | null; last_seen_at: string | null; created_at: string; paused_at?: string | null };
 const toKiosk = (r: KioskRow): Kiosk => ({
   id: r.id, name: r.name, location: r.location ?? "", version: r.version, createdAt: r.created_at, lastSeenAt: r.last_seen_at,
   pairingCode: r.pairing_code ?? undefined, pairingExpiresAt: r.pairing_expires_at ?? undefined, pairedAt: r.paired_at ?? undefined,
+  pausedAt: r.paused_at ?? undefined,
 });
 
 type CodeRow = { id: string; code: string; kiosk_name: string; created_at: string; created_by_name: string | null; expires_at: string; used_at: string | null; replaced_at: string | null };
@@ -133,9 +134,13 @@ async function fetchers() {
       return data.map(toMember);
     },
     kiosks: async () => {
-      const { data, error } = await db.from("kiosks").select("id, name, location, version, pairing_code, pairing_expires_at, paired_at, last_seen_at, created_at").order("created_at").returns<KioskRow[]>();
+      const columns = "id, name, location, version, pairing_code, pairing_expires_at, paired_at, last_seen_at, created_at";
+      const list = (select: string) => db.from("kiosks").select(select).order("created_at").returns<KioskRow[]>();
+      let { data, error } = await list(`${columns}, paused_at`);
+      // 42703: the kiosk-pause migration is not applied yet on this database.
+      if (error?.code === "42703") ({ data, error } = await list(columns));
       if (error) throw error;
-      return data.map(toKiosk);
+      return (data ?? []).map(toKiosk);
     },
     pairingCodes: async () => {
       const { data, error } = await db.from("kiosk_pairing_codes").select("id, code, kiosk_name, created_at, created_by_name, expires_at, used_at, replaced_at").order("created_at", { ascending: false }).limit(200).returns<CodeRow[]>();
@@ -420,6 +425,14 @@ export async function regeneratePairingCode(id: string): Promise<Result<{ code: 
   if (error) return fail(error);
   await refresh("kiosks", "pairingCodes", "log");
   return { ok: true, code: data as string };
+}
+
+/** Pauses a borne (it shows a "borne en pause" screen and accepts nothing) or resumes it. */
+export async function setKioskPaused(id: string, paused: boolean): Promise<Result> {
+  const { error } = await getSupabase()!.rpc("set_kiosk_paused", { p_kiosk_id: id, p_paused: paused });
+  if (error) return fail(error);
+  await refresh("kiosks", "log");
+  return { ok: true };
 }
 
 /** Sets a code chosen by the administrator (6 letters or digits). */
