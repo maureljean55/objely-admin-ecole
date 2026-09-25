@@ -138,6 +138,8 @@ export type Settings = {
   idleSeconds: number;
   /** Shown on the borne as the help-desk number. */
   helpDesk: string;
+  /** Most bornes the establishment may have, set by Objely. null = no limit. Read-only here. */
+  maxKiosks: number | null;
 };
 
 export const SCHOOL_TYPES: Record<Settings["schoolType"], string> = {

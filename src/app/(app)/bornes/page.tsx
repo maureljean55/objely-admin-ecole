@@ -66,7 +66,10 @@ function KioskStatus({ kiosk, now }: { kiosk: Kiosk; now: number }) {
 }
 
 export default function BornesPage() {
-  const { kiosks, pairingCodes } = useData();
+  const { kiosks, pairingCodes, settings } = useData();
+  // Set by Objely: once reached, no new borne can be added (the database refuses it too).
+  const limit = settings.maxKiosks;
+  const limitReached = limit !== null && kiosks.length >= limit;
   const now = useNow();
   const user = useCurrentUser();
   const toast = useToast();
@@ -145,8 +148,32 @@ export default function BornesPage() {
       <PageHeader
         title="Bornes"
         description="Les tablettes installées dans l'établissement."
-        actions={manage && <Button icon="add" onClick={() => openForm("new")}>Ajouter une borne</Button>}
+        actions={
+          manage && (
+            <div className="flex items-center gap-3">
+              {limit !== null && (
+                <span className="font-mono text-small text-slate">
+                  {kiosks.length} / {limit} borne{limit > 1 ? "s" : ""}
+                </span>
+              )}
+              <Button icon="add" disabled={limitReached} onClick={() => openForm("new")}>Ajouter une borne</Button>
+            </div>
+          )
+        }
       />
+
+      {limitReached && (
+        <div role="status" className="mb-4 flex items-start gap-3 rounded-card border border-warn/30 bg-warn-tint px-5 py-4 text-warn">
+          <Icon name="block" size={22} className="mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">Nombre maximum de bornes atteint ({limit})</p>
+            <p className="mt-0.5 text-body text-ink">
+              Votre établissement ne peut plus ajouter de borne. Vos bornes actuelles continuent de fonctionner. Pour en ajouter, contactez Objely,
+              ou supprimez une borne dont vous ne vous servez plus.
+            </p>
+          </div>
+        </div>
+      )}
 
       {kiosks.length === 0 ? (
         <Panel><EmptyState title="Aucune borne" text="Ajoutez la première borne pour qu'élèves et personnel puissent déclarer un objet." /></Panel>

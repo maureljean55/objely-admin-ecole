@@ -9,6 +9,7 @@ export function explain(error: DbError): string {
   if (msg.includes("already_restituted")) return "Cet objet a déjà été rendu.";
   if (msg.includes("id_not_checked")) return "Confirmez la vérification d'identité avant de rendre l'objet.";
   if (msg.includes("already_paired")) return "Cette borne est déjà appairée.";
+  if (msg.includes("kiosk_limit_reached")) return "Votre établissement a atteint le nombre maximum de bornes autorisé. Contactez Objely pour en ajouter.";
   if (msg.includes("code_taken")) return "Ce code est déjà utilisé par une autre borne. Choisissez-en un autre.";
   if (msg.includes("invalid_code_format")) return "Le code doit contenir 6 lettres ou chiffres.";
   if (msg.includes("code_unavailable")) return "Aucun code libre n'a pu être généré. Réessayez.";

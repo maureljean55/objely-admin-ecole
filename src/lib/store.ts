@@ -92,10 +92,10 @@ const toCode = (r: CodeRow): PairingCodeRecord => ({
   id: r.id, code: r.code, kioskName: r.kiosk_name, createdAt: r.created_at, createdBy: r.created_by_name, expiresAt: r.expires_at, usedAt: r.used_at, replacedAt: r.replaced_at,
 });
 
-type OrgRow = { id: string; name: string; type: Settings["schoolType"]; address: string | null; phone: string | null; contact_email: string | null; retention_days: number; idle_seconds: number; help_desk: string | null };
+type OrgRow = { id: string; name: string; type: Settings["schoolType"]; address: string | null; phone: string | null; contact_email: string | null; retention_days: number; idle_seconds: number; help_desk: string | null; max_kiosks?: number | null };
 const toSettings = (r: OrgRow): Settings => ({
   schoolName: r.name, schoolType: r.type, address: r.address ?? "", phone: r.phone ?? "", email: r.contact_email ?? "",
-  retentionDays: r.retention_days, idleSeconds: r.idle_seconds, helpDesk: r.help_desk ?? "",
+  retentionDays: r.retention_days, idleSeconds: r.idle_seconds, helpDesk: r.help_desk ?? "", maxKiosks: r.max_kiosks ?? null,
 });
 
 type LogRow = { id: string; created_at: string; actor_name: string; action: string; message: string };
@@ -143,8 +143,12 @@ async function fetchers() {
       return data.map(toCode);
     },
     settings: async () => {
-      const { data, error } = await db.from("organizations").select("id, name, type, address, phone, contact_email, retention_days, idle_seconds, help_desk").eq("id", orgId!).single<OrgRow>();
-      if (error) throw error;
+      const columns = "id, name, type, address, phone, contact_email, retention_days, idle_seconds, help_desk";
+      const read = (select: string) => db.from("organizations").select(select).eq("id", orgId!).single<OrgRow>();
+      let { data, error } = await read(`${columns}, max_kiosks`);
+      // 42703: the kiosk-limit migration is not applied yet on this database.
+      if (error?.code === "42703") ({ data, error } = await read(columns));
+      if (error || !data) throw error;
       return toSettings(data);
     },
     log: async () => {
